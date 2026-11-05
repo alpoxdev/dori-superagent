@@ -151,10 +151,11 @@ describe("duty loop", () => {
     const events = await dutyTick(d);
     expect(events).toContainEqual({ pane: "w1:p9", action: "delivery-ambiguous", detail: expect.stringContaining("herdr exploded") });
     expect(events).toContainEqual({ pane: "w1:p1", action: "flushed" });
-    // The lead gets its own message, then one notice about the ambiguous delivery to the broken pane (#102).
-    expect(lead.received).toHaveLength(2);
-    expect(lead.received[0]).toContain("to lead");
-    expect(lead.received[1]).toStartWith("[DELIVERY-AMBIGUOUS w1:p9]");
+    // The lead gets its own message and one notice about the ambiguous delivery to the broken pane (#102). Which pane the
+    // tick flushes first follows the inbox directory order, so the two arrive separately or as one queued batch.
+    const toLead = lead.received.join("\n");
+    expect(toLead).toContain("to lead");
+    expect(toLead.match(/\[DELIVERY-AMBIGUOUS w1:p9\]/g)).toHaveLength(1);
     expect(broken.received).toEqual([]);
   });
 
