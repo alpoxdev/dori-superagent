@@ -189,7 +189,7 @@ harness 和 Dori 模式都带一个叫 `dori` 的命令。一台机器只装其�
 
 ## 测试
 
-在仓库根目录跑 `bun test ./test/`，执行 harness 的 119 个测试，不调用任何模型。直接跑 `bun test` 会把 Dori 模式的测试也带上。
+在仓库根目录跑 `bun test ./test/`，执行 harness 的 134 个测试，不调用任何模型。直接跑 `bun test` 会把 Dori 模式的测试也带上。
 
 8 个 harness 单元测试（`test/harness.test.ts`）跑在一个假 herdr（`test/fake.ts`）上：它是一个录制器，顶替 `herdr` 和 `gh` 二进制，持有若干 Agent 状态可设置的窗格，还带一个由测试拨动的时钟。覆盖的场景有：lane 启动与 READY，lead 忙碌时的排队与成批送达，拒绝未知目标，10 和 20 分钟的催促、40 分钟的上报以及 WAITING 的 lane 不被打扰，working 和 lost 状态，合并门禁的每一个分支（没有回执、BLOCK、空检查列表、一项红色检查、全部跳过、CLEAR 加全绿），以及一个没有 VERDICT 行的评审者。
 

@@ -191,7 +191,7 @@ curl -fsSL https://raw.githubusercontent.com/alpoxdev/dori-superagent/main/insta
 
 ## テスト
 
-リポジトリのルートで `bun test ./test/` を実行すると、ハーネスの 119 個のテストが走ります。モデルは呼びません。素の `bun test` だと Dori モードのテストも拾います。
+リポジトリのルートで `bun test ./test/` を実行すると、ハーネスの 134 個のテストが走ります。モデルは呼びません。素の `bun test` だと Dori モードのテストも拾います。
 
 ハーネスのユニットテスト 8 個（`test/harness.test.ts`）は偽の herdr（`test/fake.ts`）に対して走ります。`herdr` と `gh` のバイナリの代わりを務めるレコーダーで、エージェント状態を設定できるペインを持ち、テストから進められる時計を持っています。カバーするのは、lane の開始と READY、忙しい lead に対するキューと一括配信、未知の宛先の拒否、10 分と 20 分の催促と 40 分のエスカレーションと WAITING の lane の放置、working と lost の状態、マージゲートの全分岐（receipt なし、BLOCK、空のチェック一覧、赤いチェック、全部スキップ、CLEAR とグリーン）、そして VERDICT 行のないレビュアーです。
 

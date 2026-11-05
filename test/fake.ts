@@ -5,8 +5,14 @@ import type { Deps } from "../src/harness.ts";
 import { Herdr, type AgentStatus, type Exec } from "../src/herdr.ts";
 import { Store, type HostLoad } from "../src/store.ts";
 
-/** `screen` is what `pane read` returns; undefined makes the read fail. */
-type Pane = { status: AgentStatus; received: string[]; ran: string[]; screen?: string | undefined; foreground?: string | { name: string; argv: string[] }[] | undefined };
+/**
+ * `screen` is what `pane read` returns; undefined makes the read fail. `agent` is the agent name `pane get` reports
+ * (default "pi"), `pgid` the foreground process group `pane process-info` reports (default 101).
+ */
+type Pane = {
+  status: AgentStatus; received: string[]; ran: string[]; screen?: string | undefined;
+  foreground?: string | { name: string; argv: string[] }[] | undefined; agent?: string; pgid?: number;
+};
 
 export class World {
   panes = new Map<string, Pane>();
@@ -43,7 +49,7 @@ export class World {
       if (!target || this.processInfoFails) return { code: 1, stdout: "", stderr: "process-info failed" };
       const fg = target.foreground ?? (target.status === "shell" ? "-bash" : "omp");
       const procs = typeof fg === "string" ? [{ name: fg, argv: [fg] }] : fg;
-      return ok({ process_info: { pane_id: argv[3], shell_pid: 100, foreground_process_group_id: 101, foreground_processes: procs.map((x, i) => ({ ...x, pid: 101 + i })) } });
+      return ok({ process_info: { pane_id: argv[3], shell_pid: 100, foreground_process_group_id: target.pgid ?? 101, foreground_processes: procs.map((x, i) => ({ ...x, pid: 101 + i })) } });
     }
     if ((group === "tab" || group === "workspace") && verb === "create") {
       const pane = `w1:p${++this.next}`;
@@ -61,7 +67,7 @@ export class World {
       const n = (this.gets.get(id!) ?? 0) + 1;
       this.gets.set(id!, n);
       this.getHook.get(id!)?.(n);
-      return ok({ pane: { pane_id: id, agent: pane.status === "shell" ? null : "pi", agent_status: pane.status } });
+      return ok({ pane: { pane_id: id, agent: pane.status === "shell" ? null : (pane.agent ?? "pi"), agent_status: pane.status } });
     }
     if (group === "pane" && verb === "read") {
       return pane.screen === undefined ? { code: 1, stdout: "", stderr: "read failed" } : { code: 0, stdout: pane.screen, stderr: "" };

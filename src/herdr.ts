@@ -25,10 +25,20 @@ export class HerdrError extends Error {
  * it twice. `typed`: the text is in the pane's input and only the Enter that submits it is missing.
  */
 export class DeliveryUncertain extends Error {
-  constructor(readonly failure: unknown, readonly typed: boolean) {
+  constructor(readonly failure: unknown, readonly typed: boolean, readonly agent?: AgentIdentity) {
     super(failure instanceof Error ? failure.message : String(failure));
   }
 }
+
+/**
+ * Which agent typed text went into (#108), as herdr reports it: `agent` is the agent name from `pane get`, `pgid` the
+ * foreground process group id from `pane process-info`. `pane get`'s `revision` is not used: in herdr 0.9.5 it stayed
+ * the same across an omo exit and restart in the same pane, so it cannot tell two agents apart.
+ */
+export type AgentIdentity = { readonly agent?: string; readonly pgid?: number };
+
+/** What submitTyped did: pressed Enter, found the agent away for now (suspended), or found a different or no agent. */
+export type SubmitResult = "submitted" | "wait" | "changed";
 
 /** Agent lifecycle as herdr reports it. `shell` = no recognised agent in the pane. */
 export type AgentStatus = "idle" | "working" | "blocked" | "done" | "unknown" | "shell" | "gone";
@@ -136,17 +146,22 @@ export class Herdr {
   }
 
   async status(paneId: string): Promise<AgentStatus> {
+    return (await this.paneAgent(paneId)).status;
+  }
+
+  /** `pane get`: the agent status and, when an agent is detected, its name. */
+  private async paneAgent(paneId: string): Promise<{ status: AgentStatus; agent?: string }> {
     let pane: Record<string, unknown>;
     try {
       pane = (await this.call(["pane", "get", paneId]))["pane"] as Record<string, unknown>;
     } catch (e) {
-      if (e instanceof HerdrError && /not.?found/i.test(e.message)) return "gone";
+      if (e instanceof HerdrError && /not.?found/i.test(e.message)) return { status: "gone" };
       throw e;
     }
-    if (!pane) return "gone";
-    if (!pane["agent"]) return "shell";
+    if (!pane) return { status: "gone" };
+    if (!pane["agent"]) return { status: "shell" };
     const s = String(pane["agent_status"] ?? "unknown");
-    return (["idle", "working", "blocked", "done"].includes(s) ? s : "unknown") as AgentStatus;
+    return { status: (["idle", "working", "blocked", "done"].includes(s) ? s : "unknown") as AgentStatus, agent: String(pane["agent"]) };
   }
 
   /**
@@ -168,8 +183,10 @@ export class Herdr {
       if (!(e instanceof HerdrError) || !/agent_not_ready/.test(e.result.stderr || e.result.stdout)) throw new DeliveryUncertain(e, false);
       // agent_not_ready also covers an agent that exited and left a shell in front: typing would run the text there.
       // Re-read right before typing (#66): only a pane that still has an agent gets keystrokes.
-      const st = await this.status(paneId);
-      if (st === "shell" || st === "gone" || (await this.shellInForeground(paneId))) return false;
+      const { status: st, agent } = await this.paneAgent(paneId);
+      if (st === "shell" || st === "gone") return false;
+      const front = await this.foreground(paneId);
+      if (front.shell) return false;
       // A multi-line paste swallows the Enter that follows it, so type the message as one line.
       // A failed send-text may still have typed some or all of it: ambiguous as well.
       try {
@@ -178,42 +195,56 @@ export class Herdr {
         throw new DeliveryUncertain(err, false);
       }
       await Bun.sleep(PASTE_SETTLE_MS);
-      await this.pressEnter(paneId);
+      await this.pressEnter(paneId, { agent, pgid: front.pgid });
       return true;
     }
   }
 
   /**
-   * Submits text that an earlier deliver typed but could not submit: presses only Enter, never types the text again.
-   * Returns false, pressing nothing, unless the pane still has a live agent in front (#66/#69).
+   * Submits text that an earlier deliver typed into `typedInto` but could not submit: presses only Enter, never types
+   * the text again. `changed`, pressing nothing: herdr sees no agent in the pane, or a different one (another name or
+   * foreground process group), so the typed text is not in this input (#108). `wait`, pressing nothing: the agent is
+   * still reported but a shell is in front (suspended with Ctrl+Z, #66/#69), or the lookup failed.
    */
-  async submitTyped(paneId: string): Promise<boolean> {
-    const st = await this.status(paneId);
-    if (st === "shell" || st === "gone" || (await this.shellInForeground(paneId))) return false;
-    await this.pressEnter(paneId);
-    return true;
+  async submitTyped(paneId: string, typedInto: AgentIdentity = {}): Promise<SubmitResult> {
+    const { status: st, agent } = await this.paneAgent(paneId);
+    if (st === "gone") return "wait";
+    if (st === "shell") return "changed";
+    const front = await this.foreground(paneId);
+    if (front.shell) return "wait";
+    if (typedInto.agent !== undefined && agent !== typedInto.agent) return "changed";
+    if (typedInto.pgid !== undefined && front.pgid !== typedInto.pgid) return "changed";
+    await this.pressEnter(paneId, { agent, pgid: front.pgid });
+    return "submitted";
   }
 
   /** The text is already in the pane: retry only the Enter, so a flaky key press never re-types the message. */
-  private async pressEnter(paneId: string): Promise<void> {
+  private async pressEnter(paneId: string, typedInto: AgentIdentity): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       try {
         await this.call(["pane", "send-keys", paneId, "enter"]);
         return;
       } catch (err) {
-        if (attempt >= ENTER_ATTEMPTS) throw new DeliveryUncertain(err, true);
+        if (attempt >= ENTER_ATTEMPTS) throw new DeliveryUncertain(err, true, typedInto);
       }
     }
   }
 
   /** See interactiveShellInFront. A failed or unreadable lookup is doubt: it holds delivery and says so on stderr. */
   async shellInForeground(paneId: string): Promise<boolean> {
+    return (await this.foreground(paneId)).shell;
+  }
+
+  /** `pane process-info`: whether a shell is in front (see interactiveShellInFront) and the foreground process group. */
+  private async foreground(paneId: string): Promise<{ shell: boolean; pgid?: number }> {
     try {
-      return interactiveShellInFront((await this.call(["pane", "process-info", "--pane", paneId]))["process_info"]);
+      const info = (await this.call(["pane", "process-info", "--pane", paneId]))["process_info"];
+      const pgid = (info as { foreground_process_group_id?: unknown } | undefined)?.foreground_process_group_id;
+      return { shell: interactiveShellInFront(info), ...(typeof pgid === "number" ? { pgid } : {}) };
     } catch (e) {
       const reason = e instanceof HerdrError ? (e.result.stderr || e.result.stdout).trim() : String(e);
       process.stderr.write(`dori: herdr pane process-info failed for ${paneId} (${reason}); holding delivery\n`);
-      return true;
+      return { shell: true };
     }
   }
 

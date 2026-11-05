@@ -2,7 +2,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
-  defaultDeps, done, dutyTick, mergeGate, ready, Refusal, report, review, send, sendToShell, startLane, ROLES, type Deps, type SendResult,
+  defaultDeps, done, dutyTick, inboxList, mergeGate, ready, Refusal, releaseHeld, report, review, send, sendToShell, startLane, ROLES,
+  type Deps, type SendResult,
 } from "./harness.ts";
 import { shq } from "./herdr.ts";
 import { backlogAdd, backlogDecide, backlogDrop, backlogImport, loopTick, msUntilNext, summary, HOUR, IMPORT_LIMIT } from "./loop.ts";
@@ -17,6 +18,9 @@ const USAGE = `dori - a proactive multi-session harness on herdr + omp
   dori ready <key> --text T --evidence LINK [--evidence LINK ...]
   dori send <lead|duty|key|pane> --text T     deliver now, or queue until the pane's agent is idle
                   [--to-shell]                operator only: type this one message into a pane with no agent
+  dori inbox list <pane|role|key>             queued entries: index, state (queued|typed|held), sender, time, first 60 chars
+  dori inbox ack <pane|role|key> <index>      drop a held entry: it did reach the pane
+  dori inbox resend <pane|role|key> <index>   release a held entry: the next flush delivers it
   dori duty [--once] [--interval SECONDS]     flush inboxes, nudge idle lanes, escalate, detect lost lanes
   dori duty stop [--text WHY] | resume | status   kill switch
   dori loop [--once] [--interval S] [--max-lanes N] [--max-starts N] [--max-load L] [--force]
@@ -32,7 +36,8 @@ const USAGE = `dori - a proactive multi-session harness on herdr + omp
 
 --text may be omitted to read the message from stdin.
 send, report and ready exit 3 and print HELD <target> when the delivery may or may not have reached the pane:
-it is held and never resent, so do not send it again. QUEUED (exit 0) means it waits in the pane's inbox.`;
+it is held and never resent, so do not send it again: check the pane, then dori inbox ack or dori inbox resend it.
+QUEUED (exit 0) means it waits in the pane's inbox.`;
 
 type Args = { pos: string[]; flags: Map<string, string[]> };
 
@@ -151,6 +156,22 @@ export async function main(argv: readonly string[], d: Deps = defaultDeps()): Pr
       const sent = await deliver(d, target, await textOf(a), one(a, "from") ?? process.env["DORI_LANE"] ?? "cli");
       if (sent === "DELIVERED") console.log(`DELIVERED ${target}`);
       return deliveryOutcome(sent, target);
+    }
+    case "inbox": {
+      const target = need(a.pos[2], "target");
+      if (x === "list") {
+        const { paneId, entries } = inboxList(d, target);
+        if (entries.length === 0) console.log(`EMPTY ${paneId}`);
+        for (const e of entries) console.log(`${e.index} ${e.state} from ${e.from} queued ${new Date(e.at).toISOString()} ${e.preview}`);
+        return 0;
+      }
+      if (x === "ack" || x === "resend") {
+        const index = Number(need(a.pos[3], "entry index (see dori inbox list)"));
+        const paneId = releaseHeld(d, target, index, x);
+        console.log(x === "ack" ? `ACKED ${paneId} ${index}` : `RELEASED ${paneId} ${index}: the next flush delivers it`);
+        return 0;
+      }
+      throw new Refusal(`unknown inbox command ${x}\n\n${USAGE}`);
     }
     case "duty": {
       if (x === "stop") {

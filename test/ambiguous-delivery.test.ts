@@ -65,16 +65,15 @@ describe("typed fallback whose Enter failed (#89 A)", () => {
     expect(count("w1:p1", "pane", "send-keys")).toBe(4);
   });
 
-  test("the pending Enter is held while a shell is in front, and pressed once the agent is back", async () => {
+  test("the pending Enter is held while the agent is suspended with a shell in front, and pressed once it is back", async () => {
     const { w, d, lead, count } = setup();
     w.promptFails.set("w1:p1", NOT_READY);
     w.keyFails = 3;
     expect(await send(d, "lead", "IMPORTANT MESSAGE", "cli")).toBe("QUEUED");
 
-    lead.status = "shell";
-    expect(await dutyTick(d)).toContainEqual(expect.objectContaining({ pane: "w1:p1", action: "inbox-held" }));
-    lead.status = "idle";
+    // herdr still reports the agent (idle) while its shell is in front: the same agent comes back with its input (#108).
     lead.foreground = "-zsh";
+    expect(await dutyTick(d)).toContainEqual(expect.objectContaining({ pane: "w1:p1", action: "inbox-held" }));
     expect(await dutyTick(d)).toContainEqual(expect.objectContaining({ pane: "w1:p1", action: "inbox-held" }));
     expect(count("w1:p1", "pane", "send-keys")).toBe(3);
 

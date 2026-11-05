@@ -1,5 +1,5 @@
-import { mkdirSync, readdirSync, existsSync, appendFileSync, readFileSync, writeFileSync, renameSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdirSync, readdirSync, existsSync, appendFileSync, readFileSync, writeFileSync, renameSync, rmSync, linkSync, statSync } from "node:fs";
+import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 
 export type LaneStatus = "working" | "waiting" | "ready" | "done" | "lost";
@@ -22,9 +22,13 @@ export type Role = "lead" | "duty";
 
 /**
  * A delivery that failed after the message may have reached the pane (#89). `typed`: the text is in the pane's input
- * and only Enter is retried. `ambiguous`: it may or may not have arrived; it is held, never resent automatically.
+ * and only Enter is retried; `agent` and `pgid` record which agent it was typed into (#108, see AgentIdentity).
+ * `ambiguous`: it may or may not have arrived; it is held, never resent automatically.
  */
-export type DeliveryAttempt = { at: number; state: "typed" | "ambiguous"; detail?: string };
+export type DeliveryAttempt = { at: number; state: "typed" | "ambiguous"; detail?: string; agent?: string; pgid?: number };
+
+/** A flush lock from another host (or an unreadable one) older than this is taken over; on this host only a dead pid frees it (#108). */
+export const INBOX_LOCK_STALE_MS = 60_000;
 
 export type QueuedMessage = { at: number; from: string; text: string; attempt?: DeliveryAttempt };
 
@@ -90,6 +94,38 @@ const checkedId = (id: string): string => {
   return id;
 };
 
+const readOrUndefined = (path: string): string | undefined => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return undefined;
+  }
+};
+
+const pidAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+};
+
+/** An unreadable lock (a holder that died between create and write) is judged by the file's age. */
+function lockStale(path: string, content: string, now: number): boolean {
+  let lock: { pid?: unknown; host?: unknown; at?: unknown } = {};
+  try {
+    lock = JSON.parse(content) as typeof lock;
+  } catch {
+    // fall through to the file's mtime
+  }
+  // On this host the pid decides: a live holder keeps its lock however long a herdr call takes, or a second flush
+  // would deliver the same batch again. The age rule is only for locks from another host or locks that can't be read.
+  if (lock.host === hostname() && typeof lock.pid === "number") return !pidAlive(lock.pid);
+  const at = typeof lock.at === "number" ? lock.at : (() => { try { return statSync(path).mtimeMs; } catch { return now; } })();
+  return now - at > INBOX_LOCK_STALE_MS;
+}
+
 export class Store {
   constructor(readonly root: string = process.env["DORI_HOME"] ?? join(homedir(), ".dori")) {
     for (const d of ["lanes", "inbox", "briefs", "receipts", "backlog", "loop/runs", "duty"]) mkdirSync(join(root, d), { recursive: true });
@@ -153,6 +189,47 @@ export class Store {
 
   saveInbox(paneId: string, msgs: readonly QueuedMessage[]): void {
     writeFileSync(this.inboxPath(paneId), msgs.map((m) => JSON.stringify(m) + "\n").join(""));
+  }
+
+  /**
+   * Takes the pane's inbox lock (`<inbox>.lock`, created O_EXCL, holding pid, host and time) and returns its release,
+   * or undefined while another flush holds it. A lock whose pid is dead on this host, or one from another host (or
+   * unreadable) older than INBOX_LOCK_STALE_MS, is taken over: it is renamed aside first, and when what was renamed is not the lock judged stale (another
+   * process took it over in between), it is put back and the lock counts as held.
+   */
+  lockInbox(paneId: string, now: number): (() => void) | undefined {
+    const path = `${this.inboxPath(paneId)}.lock`;
+    const mine = JSON.stringify({ pid: process.pid, host: hostname(), at: now });
+    for (let tries = 0; tries < 2; tries++) {
+      try {
+        writeFileSync(path, mine, { flag: "wx" });
+        return () => {
+          if (readOrUndefined(path) === mine) rmSync(path, { force: true });
+        };
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      }
+      const seen = readOrUndefined(path);
+      if (seen === undefined) continue;
+      if (!lockStale(path, seen, now)) return undefined;
+      const aside = `${path}.${process.pid}.stale`;
+      try {
+        renameSync(path, aside);
+      } catch {
+        continue;
+      }
+      if (readOrUndefined(aside) !== seen) {
+        try {
+          linkSync(aside, path);
+        } catch {
+          // a third process holds the lock now; either way it is not ours
+        }
+        rmSync(aside, { force: true });
+        return undefined;
+      }
+      rmSync(aside, { force: true });
+    }
+    return undefined;
   }
 
   inboxPanes(): string[] {
