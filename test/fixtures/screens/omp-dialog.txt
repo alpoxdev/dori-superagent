@@ -1,0 +1,9 @@
+╭──────────────────────────────────────────────────────────────────────────────────────╮
+│ Drop the current goal?                                                               │
+│ This removes the goal record. Accumulated usage stays in the session log.            │
+│                                                                                      │
+│  ❯ Yes                                                                               │
+│    No                                                                                │
+│                                                                                      │
+│ ↑/↓ navigate  ⏎ select  ⎋ cancel                                                     │
+╰──────────────────────────────────────────────────────────────────────────────────────╯

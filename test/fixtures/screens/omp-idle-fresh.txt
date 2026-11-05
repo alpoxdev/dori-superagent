@@ -1,0 +1,4 @@
+ Connected to MCP servers: example.
+
+ π > ◔ claude-opus-5-5 · anthropic > 🎯 Goal 92K > 🗑 project > ⑂ a-lane > $0.06 ▶──────10%──────────────────────────────────────┃────────1M─
+╰─                                                                                          ⇧⇥ to change thinking effort

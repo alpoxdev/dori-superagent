@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stands in for omo in the e2e test: no model call, it plays a lane that reads its brief, reports and finishes.
+# Stands in for omp in the e2e test: no model call, it plays a lane that reads its brief, reports and finishes.
 set -eu
 dori() { sh -c "$DORI_E2E_CMD \"\$@\"" dori "$@"; }
 brief=$(printf '%s' "$1" | sed -n 's/^Read your brief at \(.*\) and execute it\..*/\1/p')

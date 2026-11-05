@@ -8,11 +8,11 @@ import { shq } from "./herdr.ts";
 import { backlogAdd, backlogDecide, backlogDrop, backlogImport, loopTick, msUntilNext, summary, HOUR, IMPORT_LIMIT } from "./loop.ts";
 import type { Role } from "./store.ts";
 
-const USAGE = `dori - a proactive multi-session harness on herdr + omo
+const USAGE = `dori - a proactive multi-session harness on herdr + omp
 
   dori up [--cwd DIR]                         open lead, duty, duty loop and hourly loop panes
   dori role <lead|duty> [PANE]                register a pane as lead or duty (default: this pane)
-  dori start <key> --brief FILE [--cwd DIR]   open a lane: new tab, omo session, brief + lane rules
+  dori start <key> --brief FILE [--cwd DIR]   open a lane: new tab, omp session, brief + lane rules
   dori report <key> --text T [--status working|waiting]
   dori ready <key> --text T --evidence LINK [--evidence LINK ...]
   dori send <lead|duty|key|pane> --text T     deliver now, or queue until the pane's agent is idle
@@ -25,7 +25,7 @@ const USAGE = `dori - a proactive multi-session harness on herdr + omo
   dori backlog add <id> --brief FILE [--title T] [--priority 1-9] [--cwd DIR] [--decision Q]
   dori backlog list | decide <id> --text ANSWER | drop <id> [--text WHY]
   dori backlog import <owner/repo> [--label dori] [--cwd DIR]   open labelled issues -> items
-  dori review <owner/repo#N> [--model M]      fresh omo reviewer at the exact head -> receipt
+  dori review <owner/repo#N> [--model M]      fresh omp reviewer at the exact head -> receipt
   dori merge <owner/repo#N> [--dry-run]       CLEAR receipt at head + green checks -> squash merge
   dori done <key>                             lead closes a READY lane
   dori status

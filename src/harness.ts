@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { cpus, freemem, loadavg, totalmem } from "node:os";
 import { join, resolve } from "node:path";
-import { DeliveryUncertain, Herdr, HerdrError, omoScreenIdle, shq, spawnExec, type AgentStatus, type Exec } from "./herdr.ts";
+import { DeliveryUncertain, Herdr, HerdrError, ompScreenIdle, shq, spawnExec, type AgentStatus, type Exec } from "./herdr.ts";
 import { KEY_RE, reservedKey, Store, type DeliveryAttempt, type HostLoad, type Lane, type QueuedMessage, type Role } from "./store.ts";
 import { Telemetry, type MergeOutcome, type Usage } from "./telemetry.ts";
 
@@ -30,7 +30,7 @@ export const defaultDeps = (): Deps => {
     herdr: new Herdr(),
     exec: spawnExec,
     now: Date.now,
-    agentCmd: process.env["DORI_AGENT_CMD"] ?? "omo",
+    agentCmd: process.env["DORI_AGENT_CMD"] ?? "omp",
     doriCmd: process.env["DORI_CMD"] ?? `DORI_HOME=${shq(store.root)} bun ${shq(CLI)}`,
     host: () => ({ load1: loadavg()[0] ?? 0, cores: cpus().length, memFreePct: memFreePct() }),
     usage: new Telemetry(store.root),
@@ -200,12 +200,12 @@ async function recordUncertain(d: Deps, paneId: string, batch: readonly QueuedMe
 }
 
 /**
- * herdr reports an omo with live monitors as `working` between turns (#62). Believe the screen only when it
+ * herdr can report an omp with background jobs as `working` between turns (#62). Believe the screen only when it
  * positively shows the idle input; a failed read is doubt, so the message stays queued for the next duty pass.
  */
 async function screenShowsIdle(d: Deps, paneId: string): Promise<boolean> {
   try {
-    return omoScreenIdle(await d.herdr.read(paneId, 30));
+    return ompScreenIdle(await d.herdr.read(paneId, 30));
   } catch {
     return false;
   }

@@ -1,36 +1,42 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { send } from "../src/harness.ts";
-import { omoScreenIdle } from "../src/herdr.ts";
+import { ompScreenIdle } from "../src/herdr.ts";
 import { World } from "./fake.ts";
 
-// Real omo screens captured with `herdr pane read --source recent`, sanitized (titles, costs, ids, paths replaced).
+// omp screens captured from a live omp 18.16 session, sanitized (titles, costs, paths, models replaced).
 const screen = (name: string) => Bun.file(join(import.meta.dir, "fixtures", "screens", `${name}.txt`)).text();
 
-describe("omoScreenIdle (#62: herdr reports an omo with live monitors as working)", () => {
-  test("idle input rule between turns, monitors still live: idle", async () => {
-    expect(omoScreenIdle(await screen("omo-idle-live-monitors"))).toBe(true);
+describe("ompScreenIdle (#62: herdr can report an agent with background jobs as working)", () => {
+  test("empty input under the π status line between turns, a background job still running: idle", async () => {
+    expect(ompScreenIdle(await screen("omp-idle-background-job"))).toBe(true);
   });
 
-  test("a real turn shows esc to interrupt: not idle", async () => {
-    expect(omoScreenIdle(await screen("omo-turn"))).toBe(false);
+  test("a fresh session with the right-aligned hint on its input line: idle", async () => {
+    expect(ompScreenIdle(await screen("omp-idle-fresh"))).toBe(true);
   });
 
-  test("doubt keeps it working: dialog, draft in the input, no box, unknown layout, empty read", async () => {
-    expect(omoScreenIdle(await screen("omo-dialog"))).toBe(false);
-    expect(omoScreenIdle(await screen("omo-draft"))).toBe(false);
-    expect(omoScreenIdle("$ ls\nREADME.md\n$ ")).toBe(false);
-    expect(omoScreenIdle("──────────\n❯\nsomething else\n")).toBe(false);
-    expect(omoScreenIdle("")).toBe(false);
+  test("a real turn shows the spinner on the status line: not idle", async () => {
+    expect(ompScreenIdle(await screen("omp-turn"))).toBe(false);
   });
 
-  test("an idle box with esc to interrupt anywhere on the screen is not idle", async () => {
-    expect(omoScreenIdle("── • Working (9s • esc to interrupt) ──\n" + (await screen("omo-idle-live-monitors")))).toBe(false);
+  test("doubt keeps it working: dialog, draft in the input, autocomplete list, no input, empty read", async () => {
+    expect(ompScreenIdle(await screen("omp-dialog"))).toBe(false);
+    expect(ompScreenIdle(await screen("omp-draft"))).toBe(false);
+    expect(ompScreenIdle(await screen("omp-autocomplete"))).toBe(false);
+    expect(ompScreenIdle("$ ls\nREADME.md\n$ ")).toBe(false);
+    expect(ompScreenIdle("╰─\n")).toBe(false);
+    expect(ompScreenIdle("")).toBe(false);
   });
 
-  test("an idle box scrolled up above other output is not the bottom of the screen: not idle", async () => {
-    const idle = await screen("omo-idle-live-monitors");
-    expect(omoScreenIdle(idle + "\n".repeat(2) + ["more", "output", "below", "the", "box"].join("\n"))).toBe(false);
+  test("an esc-to-interrupt row right above an idle-looking status line is a turn: not idle", async () => {
+    const idle = (await screen("omp-idle-fresh")).split("\n");
+    expect(ompScreenIdle(["  ⎋ Working…", ...idle.slice(-3)].join("\n"))).toBe(false);
+  });
+
+  test("an idle input scrolled up above other output is not the bottom of the screen: not idle", async () => {
+    const idle = await screen("omp-idle-background-job");
+    expect(ompScreenIdle(idle + ["more", "output", "below"].join("\n"))).toBe(false);
   });
 });
 
@@ -44,14 +50,14 @@ describe("delivery to a pane herdr calls working", () => {
     return { w, d, lead };
   }
 
-  test("live monitors and an idle screen: the message is delivered", async () => {
-    const { d, lead } = setup(await screen("omo-idle-live-monitors"));
+  test("a background job and an idle screen: the message is delivered", async () => {
+    const { d, lead } = setup(await screen("omp-idle-background-job"));
     expect(await send(d, "lead", "hello", "cli")).toBe("DELIVERED");
     expect(lead.received).toEqual(["hello"]);
   });
 
   test("a real turn: the message is queued and nothing is typed", async () => {
-    const { w, d, lead } = setup(await screen("omo-turn"));
+    const { w, d, lead } = setup(await screen("omp-turn"));
     expect(await send(d, "lead", "hello", "cli")).toBe("QUEUED");
     expect(lead.received).toEqual([]);
     expect(w.calls.some((c) => c.argv[1] === "send-text" || c.argv[0] === "agent")).toBe(false);
@@ -64,7 +70,7 @@ describe("delivery to a pane herdr calls working", () => {
   });
 
   test("blocked is never read as idle, whatever the screen shows", async () => {
-    const { w, d, lead } = setup(await screen("omo-idle-live-monitors"));
+    const { w, d, lead } = setup(await screen("omp-idle-background-job"));
     lead.status = "blocked";
     expect(await send(d, "lead", "hello", "cli")).toBe("QUEUED");
     expect(w.calls.some((c) => c.argv[1] === "read")).toBe(false);

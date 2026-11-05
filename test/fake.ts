@@ -51,7 +51,7 @@ export class World {
     if (group === "pane" && verb === "process-info") {
       const target = this.panes.get(String(argv[3]));
       if (!target || this.processInfoFails) return { code: 1, stdout: "", stderr: "process-info failed" };
-      const fg = target.foreground ?? (target.status === "shell" ? "-bash" : "omo");
+      const fg = target.foreground ?? (target.status === "shell" ? "-bash" : "omp");
       const procs = typeof fg === "string" ? [{ name: fg, argv: [fg] }] : fg;
       return ok({ process_info: { pane_id: argv[3], shell_pid: 100, foreground_process_group_id: 101, foreground_processes: procs.map((x, i) => ({ ...x, pid: 101 + i })) } });
     }
@@ -98,7 +98,7 @@ export class World {
       herdr: new Herdr(this.exec, ""),
       exec: this.exec,
       now: () => this.clock,
-      agentCmd: "omo",
+      agentCmd: "omp",
       doriCmd: "dori",
       host: () => this.host,
       usage: this.recorder,

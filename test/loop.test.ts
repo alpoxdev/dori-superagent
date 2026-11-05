@@ -86,7 +86,7 @@ describe("hourly loop", () => {
     expect(run.started).toEqual(["urgent (p1)", "old-five (p5)"]);
     expect(run.held).toEqual(["2 item(s) waiting: 1 free of 3 lanes, max 2/run"]);
     expect(d.store.item("urgent")!.status).toBe("running");
-    expect(w.panes.get(d.store.lane("urgent")!.paneId)!.ran[0]).toStartWith("omo 'Read your brief at ");
+    expect(w.panes.get(d.store.lane("urgent")!.paneId)!.ran[0]).toStartWith("omp 'Read your brief at ");
     expect(lead.received.filter((m) => m.startsWith("[START"))).toHaveLength(2);
     const loopMsg = lead.received.find((m) => m.startsWith("[LOOP"))!;
     expect(loopMsg).toContain("lanes 2/3");

@@ -19,11 +19,11 @@ describe("herdr argv", () => {
   test("a named session goes in front of every call, pane read included; no session adds nothing", async () => {
     const named = recorder(() => ok({}));
     const h = new Herdr(named.exec, "iso");
-    await h.run("w1:p1", "omo");
+    await h.run("w1:p1", "omp");
     await h.read("w1:p1", 40);
     await h.close("w1:p1");
     expect(named.calls).toEqual([
-      ["--session", "iso", "pane", "run", "w1:p1", "omo"],
+      ["--session", "iso", "pane", "run", "w1:p1", "omp"],
       ["--session", "iso", "pane", "read", "w1:p1", "--lines", "40", "--source", "recent"],
       ["--session", "iso", "pane", "close", "w1:p1"],
     ]);
@@ -48,7 +48,7 @@ describe("herdr argv", () => {
   });
 
   test("a message is one argv element, delivered verbatim: quotes, $(...) and newlines are never expanded", async () => {
-    const r = recorder((argv) => ok(argv[1] === "process-info" ? { process_info: { foreground_processes: [{ name: "omo", argv: ["omo"] }] } } : {}));
+    const r = recorder((argv) => ok(argv[1] === "process-info" ? { process_info: { foreground_processes: [{ name: "omp", argv: ["omp"] }] } } : {}));
     const h = new Herdr(r.exec, "");
     const text = `it's "done" $(rm -rf ~) \`id\`\nline two`;
     expect(await h.deliver("w1:p1", text)).toBe(true);
@@ -73,7 +73,7 @@ describe("herdr replies", () => {
 
   test("a successful call whose output is not JSON reads as an empty result", async () => {
     const h = new Herdr(recorder(() => ({ code: 0, stdout: "ok\n", stderr: "" })).exec, "");
-    await expect(h.run("w1:p1", "omo")).resolves.toBeUndefined();
+    await expect(h.run("w1:p1", "omp")).resolves.toBeUndefined();
   });
 
   test("status: pane_not_found is gone, but a herdr server that is down is an error, never a lost pane", async () => {
@@ -88,9 +88,9 @@ describe("herdr replies", () => {
   test("status: no agent is a shell; herdr's four states pass through and anything else is unknown", async () => {
     const status = (p: Record<string, unknown>) => new Herdr(recorder(() => ok({ pane: p })).exec, "").status("w1:p1");
     expect(await status({ agent: null, agent_status: "idle" })).toBe("shell");
-    for (const s of ["idle", "working", "blocked", "done"] as const) expect(await status({ agent: "omo", agent_status: s })).toBe(s);
-    expect(await status({ agent: "omo", agent_status: "compacting" })).toBe("unknown");
-    expect(await status({ agent: "omo" })).toBe("unknown");
+    for (const s of ["idle", "working", "blocked", "done"] as const) expect(await status({ agent: "omp", agent_status: s })).toBe(s);
+    expect(await status({ agent: "omp", agent_status: "compacting" })).toBe("unknown");
+    expect(await status({ agent: "omp" })).toBe("unknown");
   });
 });
 
@@ -111,7 +111,7 @@ describe("interactiveShellInFront (#66: a suspended agent leaves its shell in fr
     ["bash -C (noclobber) is still interactive", [{ name: "bash", argv: ["bash", "-C"] }], true],
     ["busybox sh applet", [{ name: "busybox", argv: ["busybox", "sh"] }], true],
     ["shell entry without argv", [{ name: "fish" }], true],
-    ["agent with a sh -c child", [{ name: "omo", argv: ["omo"] }, { name: "sh", argv: ["sh", "-c", "sleep 1"] }], false],
+    ["agent with a sh -c child", [{ name: "omp", argv: ["omp"] }, { name: "sh", argv: ["sh", "-c", "sleep 1"] }], false],
     ["shell running a script is held, the safe side", [{ name: "bash", argv: ["bash", "tool.sh"] }], true],
     ["interactive bash with --rcfile FILE", [{ name: "bash", argv: ["bash", "--rcfile", "/tmp/rc"] }], true],
     ["interactive zsh with -o OPT", [{ name: "zsh", argv: ["zsh", "-o", "vi"] }], true],

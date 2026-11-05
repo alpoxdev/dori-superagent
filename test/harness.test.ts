@@ -16,11 +16,11 @@ function setup() {
 }
 
 describe("lanes", () => {
-  test("start opens a tab, launches omo with the brief, and tells the lead", async () => {
+  test("start opens a tab, launches omp with the brief, and tells the lead", async () => {
     const { w, d, lead, brief } = setup();
     const lane = await startLane(d, "fix-login", brief, { workspace: "w1" });
     const pane = w.panes.get(lane.paneId)!;
-    expect(pane.ran[0]).toStartWith("omo 'Read your brief at ");
+    expect(pane.ran[0]).toStartWith("omp 'Read your brief at ");
     expect(await Bun.file(lane.brief).text()).toContain("dori ready fix-login --text");
     expect(lead.received).toEqual([`[START fix-login] lane opened in ${lane.paneId}`]);
     await expect(startLane(d, "fix-login", brief, { workspace: "w1" })).rejects.toThrow(Refusal);
@@ -71,7 +71,7 @@ describe("pane messaging", () => {
     expect(lead.received[0]).toContain("second note");
   });
 
-  test("an omo pane that herdr refuses `agent prompt` for (agent_not_ready) still gets the text typed in", async () => {
+  test("an omp pane that herdr refuses `agent prompt` for (agent_not_ready) still gets the text typed in", async () => {
     const { w, d, lead } = setup();
     w.promptFails.set("w1:p1", '{"error":{"code":"agent_not_ready"}}');
     expect(await send(d, "lead", "hello\n\nlead", "cli")).toBe("DELIVERED");

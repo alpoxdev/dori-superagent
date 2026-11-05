@@ -39,24 +39,24 @@ const PASTE_SETTLE_MS = 400;
 /** How often the Enter that submits typed fallback text is tried before the delivery is reported as failed. */
 const ENTER_ATTEMPTS = 3;
 
-const INPUT_RULE = /^─{10,}$/;
-/** Lines omo prints below its input box (cwd/model line, status line); more than this and the box is not at the bottom. */
-const FOOTER_MAX_LINES = 3;
+/** omp's input line: `╰─`, empty, or followed only by a right-aligned hint such as `⇧⇥ to change thinking effort`. */
+const EMPTY_INPUT = /^╰─(?:\s{2,}\S.*)?$/;
+/** omp's status line between turns starts with `π >`; during a turn a spinner and the elapsed time take its place. */
+const IDLE_STATUS = /^\s*π >/;
 
 /**
- * True only when an omo screen positively shows its idle input at the bottom: a bare rule, an empty `❯`
- * line, a bare rule, and no `esc to interrupt` anywhere. Anything else (a turn, a dialog, a draft in the
- * input, an unknown layout) is false, so the caller keeps queueing. Stopgap for #62: herdr reports an omo
- * whose live monitors or background cells are running as `working` even between turns.
+ * True only when an omp screen positively shows its idle input at the bottom: the last line is an empty `╰─`
+ * input, the line above it is the `π >` status line, and no `⎋` (esc to interrupt) row of a running turn sits
+ * right above that. Anything else (a turn, a dialog, a draft in the input, an autocomplete list, an unknown
+ * layout) is false, so the caller keeps queueing. Stopgap for #62: herdr can report an agent whose background
+ * jobs are running as `working` even between turns.
  */
-export function omoScreenIdle(screen: string): boolean {
-  if (screen.includes("esc to interrupt")) return false;
+export function ompScreenIdle(screen: string): boolean {
   const lines = screen.split("\n").map((l) => l.trimEnd());
   while (lines.length > 0 && lines.at(-1) === "") lines.pop();
-  const input = lines.lastIndexOf("❯");
-  if (input < 1 || input + 1 >= lines.length) return false;
-  if (!INPUT_RULE.test(lines[input - 1]!) || !INPUT_RULE.test(lines[input + 1]!)) return false;
-  return lines.length - 1 - (input + 1) <= FOOTER_MAX_LINES;
+  if (lines.length < 2 || !EMPTY_INPUT.test(lines.at(-1)!) || !IDLE_STATUS.test(lines.at(-2)!)) return false;
+  const above = lines.slice(0, -2).filter((l) => l.trim() !== "").at(-1) ?? "";
+  return !/^\s*⎋/.test(above);
 }
 
 const SHELLS: ReadonlySet<string> = new Set([
@@ -161,7 +161,7 @@ export class Herdr {
       await this.call(["agent", "prompt", paneId, text]);
       return true;
     } catch (e) {
-      // herdr only accepts `agent prompt` for agents it started itself (`herdr agent start`); an omo launched
+      // herdr only accepts `agent prompt` for agents it started itself (`herdr agent start`); an agent launched
       // with `pane run` is detected but refused. Fall back to typing the text and pressing Enter.
       // Match herdr's own output, never e.message: that carries argv, which includes the delivered text.
       // Any other failure (a timeout, say) may come after herdr handed the prompt over: it is ambiguous.
