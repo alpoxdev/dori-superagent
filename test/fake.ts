@@ -4,7 +4,6 @@ import { join } from "node:path";
 import type { Deps } from "../src/harness.ts";
 import { Herdr, type AgentStatus, type Exec } from "../src/herdr.ts";
 import { Store, type HostLoad } from "../src/store.ts";
-import type { DutyCounts, TelemetryEvent, Usage } from "../src/telemetry.ts";
 
 /** `screen` is what `pane read` returns; undefined makes the read fail. */
 type Pane = { status: AgentStatus; received: string[]; ran: string[]; screen?: string | undefined; foreground?: string | { name: string; argv: string[] }[] | undefined };
@@ -25,15 +24,6 @@ export class World {
   /** number of upcoming `pane send-keys` calls that fail (exit 1) */
   keyFails = 0;
   gh: (argv: readonly string[]) => { code: number; stdout: string } = () => ({ code: 1, stdout: "" });
-  usage: TelemetryEvent[] = [];
-  dutyCounts: DutyCounts[] = [];
-  touches = 0;
-  recorder: Usage = {
-    touch: () => { this.touches++; },
-    record: (e) => { this.usage.push(e); },
-    duty: (c) => { this.dutyCounts.push(c); },
-    flush: async () => {},
-  };
   reviewer: (argv: readonly string[]) => { code: number; stdout: string } = () => ({ code: 0, stdout: "VERDICT: CLEAR" });
 
   addPane(id: string, status: AgentStatus = "idle"): Pane {
@@ -101,7 +91,6 @@ export class World {
       agentCmd: "omp",
       doriCmd: "dori",
       host: () => this.host,
-      usage: this.recorder,
     };
   }
 }

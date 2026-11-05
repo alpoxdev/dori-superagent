@@ -34,8 +34,6 @@ const USAGE = `dori - a proactive multi-session harness on herdr + omp
 send, report and ready exit 3 and print HELD <target> when the delivery may or may not have reached the pane:
 it is held and never resent, so do not send it again. QUEUED (exit 0) means it waits in the pane's inbox.`;
 
-const COMMANDS = new Set(["up", "role", "start", "report", "ready", "send", "duty", "review", "merge", "done", "status", "loop", "backlog"]);
-
 type Args = { pos: string[]; flags: Map<string, string[]> };
 
 // Flags that never take a value. Every other flag takes the next argument verbatim, even one starting with "--", so a
@@ -116,7 +114,6 @@ function status(d: Deps): void {
 export async function main(argv: readonly string[], d: Deps = defaultDeps()): Promise<number> {
   const a = parse(argv);
   const [cmd, x] = a.pos;
-  if (cmd !== undefined && COMMANDS.has(cmd)) d.usage.touch();
   switch (cmd) {
     case "up":
       await up(d, resolve(one(a, "cwd") ?? process.cwd()));
@@ -283,16 +280,13 @@ export async function main(argv: readonly string[], d: Deps = defaultDeps()): Pr
 }
 
 if (import.meta.main) {
-  const deps = defaultDeps();
   let code = 0;
   try {
-    code = await main(process.argv.slice(2), deps);
+    code = await main(process.argv.slice(2));
   } catch (e) {
     if (!(e instanceof Refusal)) throw e;
     console.error(e.message);
     code = 2;
-  } finally {
-    await deps.usage.flush(2000);
   }
   process.exit(code);
 }

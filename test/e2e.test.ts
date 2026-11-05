@@ -9,7 +9,7 @@ const herdrBin = Bun.which("herdr");
 const session = `dori-e2e-${process.pid}`;
 const home = mkdtempSync(join(tmpdir(), "dori-e2e-"));
 const cli = resolve(import.meta.dir, "../src/cli.ts");
-const env = { ...process.env, DORI_HOME: home, DORI_HERDR_SESSION: session, DORI_TELEMETRY: "0" };
+const env = { ...process.env, DORI_HOME: home, DORI_HERDR_SESSION: session };
 let server: ReturnType<typeof Bun.spawn> | undefined;
 
 const herdr = async (...argv: string[]) => {
@@ -60,7 +60,7 @@ test.skipIf(!herdrBin)("a lane started in real herdr reports and finishes; the l
   writeFileSync(brief, "E2E-BRIEF say hello\n");
 
   const fake = resolve(import.meta.dir, "fixtures/fake-agent.sh");
-  const doriCmd = `DORI_HOME=${shq(home)} DORI_HERDR_SESSION=${session} DORI_TELEMETRY=0 bun ${shq(cli)}`;
+  const doriCmd = `DORI_HOME=${shq(home)} DORI_HERDR_SESSION=${session} bun ${shq(cli)}`;
   const started = Bun.spawn(["bun", cli, "start", "e2e-lane", "--brief", brief, "--workspace", ws.workspace.workspace_id], {
     env: { ...env, DORI_AGENT_CMD: `DORI_E2E_CMD=${shq(doriCmd)} ${shq(fake)}`, DORI_CMD: doriCmd },
     stdout: "pipe", stderr: "pipe",
@@ -89,7 +89,7 @@ test.skipIf(!herdrBin)("the hourly loop starts a backlog item as a lane in real 
   expect(await dori("backlog", "add", "loop-item", "--brief", brief, "--cwd", home, "--priority", "2")).toContain("ADDED loop-item p2");
 
   const fake = resolve(import.meta.dir, "fixtures/fake-agent.sh");
-  const doriCmd = `DORI_HOME=${shq(home)} DORI_HERDR_SESSION=${session} DORI_TELEMETRY=0 bun ${shq(cli)}`;
+  const doriCmd = `DORI_HOME=${shq(home)} DORI_HERDR_SESSION=${session} bun ${shq(cli)}`;
   const loop = Bun.spawn(["bun", cli, "loop", "--once", "--max-lanes", "5", "--max-load", "100000"], {
     env: { ...env, HERDR_WORKSPACE_ID: ws.workspace.workspace_id, DORI_AGENT_CMD: `DORI_E2E_CMD=${shq(doriCmd)} ${shq(fake)}`, DORI_CMD: doriCmd },
     stdout: "pipe", stderr: "pipe",
