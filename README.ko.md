@@ -187,33 +187,17 @@ curl -fsSL https://raw.githubusercontent.com/alpoxdev/dori-superagent/main/insta
 
 최소 실험입니다. 하네스는 Bun 위의 TypeScript 약 1,600줄에 런타임 의존성이 없고, 저희의 프로덕션 스택은 아닙니다. 일부러 뺀 것은 머신 간 메시, heavy-slot 스케줄링, 채팅과 티켓 트래커 브리지, 테스트 스위트 전체에 대한 영수증입니다. 여기 있는 것은 herdr와 omp만으로 돌아가는 부분입니다. 역할, 레인, 인박스, 듀티 루프, 한 시간 루프와 백로그, 리뷰와 머지 게이트. `skills/dori-mode`의 Dori 모드는 별개의 CLI입니다. 메신저 기능, 호스트 가드, heavy-slot 러너가 따로 있고, 하네스는 거기서 아무것도 import하지 않습니다.
 
-## 텔레메트리
-
-dori는 omo와 같은 방식으로 익명 사용 횟수를 보냅니다. OTLP/HTTP JSON 로그를 omo 수집기 `https://t.omo.dev`로 보냅니다. 식별자는 `~/.dori/telemetry.json`에 둔 무작위 설치 id 하나이고, 보내는 것은 그 sha256뿐입니다. 첫 전송 때 수집기가 그 해시로 설치별 ingest 키를 발급하고(`POST /v1/register`), 키는 `~/.dori/telemetry.json`에 캐시해 두고 수집기가 401로 거절하면 다시 발급받습니다. 코드에 공유 키는 들어 있지 않습니다. 처음 실행하면 한 줄 안내가 뜹니다. `DORI_TELEMETRY=0`으로 끕니다(`DO_NOT_TRACK=1`도 됩니다). `DORI_TELEMETRY_ENDPOINT`는 수집기 URL을 바꿉니다.
-
-| 이벤트 | 언제 | 필드 |
-|---|---|---|
-| `dori.installed` | 첫 실행 | 없음 |
-| `dori.daily_active` | 어떤 dori 명령이든, UTC 하루에 한 번 | `day_utc` |
-| `dori.lane_started` | `dori start` | `open_lanes` |
-| `dori.lane_ready` | `dori ready` | `evidence_count`, `lane_minutes` |
-| `dori.review_completed` | `dori review` | `verdict`: `CLEAR` 또는 `BLOCK` |
-| `dori.merge_decided` | `--dry-run`이 아닌 `dori merge` | `outcome`: `merged`, `no_receipt`, `review_block`, `no_checks`, `checks_red`, `checks_all_skipped` |
-| `dori.duty_summary` | 듀티 루프에서 한 시간에 최대 한 번 | `ticks`, `flushed`, `nudges`, `escalations`, `lost` |
-
-일간, 주간, 월간 활성 수는 `dori.daily_active`로 셉니다. 활성 수는 설치 단위로 세기 때문에, 두 실행이 같은 순간에 시작해 드물게 한 번 더 보내도 숫자는 바뀌지 않습니다. 레코드마다 리소스 필드가 같이 붙습니다. 서비스 이름과 버전, 설치 해시, CI 여부, OS 종류와 버전, CPU 아키텍처입니다. OS 종류는 `darwin`, `linux`, `windows` 중 하나이고, 그 밖의 OS에서는 아무것도 보내지 않습니다. 경로, 저장소 이름, PR 번호, 레인 키, 브리프, 메시지, 그 밖의 어떤 텍스트도 보내지 않습니다. 전송은 백그라운드에서 요청마다 2초 타임아웃으로 돌고, 명령은 끝나기 전에 최대 2초까지만 기다립니다. 텔레메트리가 실패해도 명령은 실패하지 않습니다.
+이 포크는 텔레메트리를 보내지 않습니다. 업스트림이 omo 수집기로 보내던 사용 횟수 집계는 제거됐고, 하네스가 의도적으로 하는 `gh`, herdr, 에이전트 호출 말고는 아무것도 기기 밖으로 나가지 않습니다.
 
 ## 테스트
 
-저장소 루트에서 `bun test ./test/`를 치면 하네스 테스트 130개가 돌고, 모델은 부르지 않습니다. 그냥 `bun test`를 치면 Dori 모드 테스트까지 같이 돕니다.
+저장소 루트에서 `bun test ./test/`를 치면 하네스 테스트 119개가 돌고, 모델은 부르지 않습니다. 그냥 `bun test`를 치면 Dori 모드 테스트까지 같이 돕니다.
 
 하네스 단위 테스트 8개(`test/harness.test.ts`)는 가짜 herdr(`test/fake.ts`)를 상대로 돕니다. `herdr`와 `gh` 바이너리 대신 들어가는 레코더로, 에이전트 상태를 바꿀 수 있는 pane들을 들고 있고, 테스트가 손으로 돌리는 시계가 있습니다. 다루는 것은 레인 시작과 READY, 바쁜 리드의 큐와 묶음 전달, 모르는 대상 거절, 10분과 20분의 nudge와 40분의 에스컬레이션과 WAITING 레인 제외, working과 lost 상태, 머지 게이트의 모든 분기(영수증 없음, BLOCK, 빈 체크 목록, 빨간 체크, 전부 skip, CLEAR + 녹색), VERDICT 줄 없는 리뷰어입니다.
 
 단위 테스트 19개(`test/loop.test.ts`)는 같은 가짜 위에서 한 시간 루프를 돌립니다. 백로그 추가, 결정, 빼기, 가져오기, 시작 순서와 예산, 레인이 꽉 찼거나 호스트가 바쁘거나 질문이 걸린 경우의 보류, done, lost, 머지된 레인의 동기화, 놓친 일 점검, 질문당 한 번 묻고 한 번 다시 묻기, 긴급 정지, 살아 있거나 죽었거나 깨진 잠금, 실행 중에 뺏긴 잠금, 되돌릴 수 없어 옆에 남겨 둔 잠금, 레인 시작 실패, 시작이 계속 실패해 질문으로 바뀌는 항목, 실행 사이의 대기 시간, 열렸지만 리드에게 알리지 못한 레인, 백로그 폴더 밖으로 나가려는 id, 사라진 레인 기록, 같은 밀리초의 두 실행을 다룹니다. 그중 두 개는 루프가 pane 닫기, 머지, 푸시를 한 번도 보내지 않는지 확인하고, 점검 테스트는 레인 기록이 바이트 단위로 그대로인지도 확인합니다.
 
-텔레메트리 단위 테스트 11개(`test/telemetry.test.ts`)는 끄기, 첫 실행 안내와 하루 한 번의 `dori.daily_active`, 설치별 키를 한 번만 발급받아 캐시하고 401 뒤에 다시 발급받는 것, 등록된 스키마에 맞는 페이로드(scope 이름과 버전, 허용된 리소스 키만, 횟수만), 수집기가 200 응답 안에서 거절한 레코드(`partialSuccess.rejectedLogRecords`)를 따로 세는 것, 한 시간 단위 듀티 요약, 오프라인에서 처음 실행해도 `dori.installed`와 `dori.daily_active`를 전송이 성공할 때까지 남겨 두는 것, 상태 파일 권한이 0600이고 깨진 상태 파일에도 throw하지 않는 것, 호출이 바로 돌아오고 flush가 기한에 포기하는 것, 같은 홈에서 동시에 시작한 첫 실행 둘이 설치 id 하나를 나눠 쓰는 것, 수집기에 닿지 않거나 등록이 거절돼도 throw하지 않고 로그도 보내지 않는 것을 확인합니다.
-
-엔드투엔드 테스트 2개(`test/e2e.test.ts`) 중 첫 번째는 격리된 이름의 세션에 진짜 herdr 서버를 띄우고, 워크스페이스를 만들고, 리드 pane을 등록하고, omp 대신 `test/fixtures/fake-agent.sh`를 에이전트로 쓰는 레인을 시작합니다. 이 스크립트는 브리프를 읽고 `dori report`와 `dori ready`를 부르고, 테스트는 `[START]`, `[REPORT]`, `[READY]`가 리드 pane에 도착하는지와 `dori done`이 레인을 닫는지 확인합니다. 두 번째는 백로그 항목을 넣고 `dori loop --once`를 돌린 뒤, 루프가 시작한 레인이 READY까지 가는지, `[LOOP ...]`가 리드 pane에 도착하는지, `dori loop stop` 뒤의 실행이 아무것도 하지 않는지 확인합니다. 둘 다 PATH에 `herdr`가 없으면 건너뛰고, `DORI_TELEMETRY=0`으로 돕니다. `bun run typecheck`는 `tsc --noEmit`입니다.
+엔드투엔드 테스트 2개(`test/e2e.test.ts`) 중 첫 번째는 격리된 이름의 세션에 진짜 herdr 서버를 띄우고, 워크스페이스를 만들고, 리드 pane을 등록하고, omp 대신 `test/fixtures/fake-agent.sh`를 에이전트로 쓰는 레인을 시작합니다. 이 스크립트는 브리프를 읽고 `dori report`와 `dori ready`를 부르고, 테스트는 `[START]`, `[REPORT]`, `[READY]`가 리드 pane에 도착하는지와 `dori done`이 레인을 닫는지 확인합니다. 두 번째는 백로그 항목을 넣고 `dori loop --once`를 돌린 뒤, 루프가 시작한 레인이 READY까지 가는지, `[LOOP ...]`가 리드 pane에 도착하는지, `dori loop stop` 뒤의 실행이 아무것도 하지 않는지 확인합니다. 둘 다 PATH에 `herdr`가 없으면 건너뜁니다. `bun run typecheck`는 `tsc --noEmit`입니다.
 
 Dori 모드에는 가짜 herdr, git, gh를 상대로 하는 자체 테스트 304개가 있습니다.
 

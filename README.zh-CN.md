@@ -185,33 +185,17 @@ harness 和 Dori 模式都带一个叫 `dori` 的命令。一台机器只装其�
 
 一个最小实验。harness 是 Bun 上约 1,600 行 TypeScript，零运行时依赖，它不是我们的生产栈。有意不放进来的：跨机器的 mesh、heavy-slot 调度、聊天工具和工单系统的桥接，以及覆盖整个测试套件的回执。放进来的是光靠 herdr 和 omp 就能跑的部分：角色、lane、收件箱、duty 循环、每小时循环和待办，以及评审加合并门禁。`skills/dori-mode` 里的 Dori 模式是一个独立的 CLI，有自己的 IM 组件、主机守护和 heavy-slot 运行器；harness 不从它导入任何东西。
 
-## 遥测
-
-dori 和 omo 用同一种方式发送匿名的使用计数：OTLP/HTTP JSON 日志，发到 omo 的收集端 `https://t.omo.dev`。身份标识是一个随机的安装 id，存在 `~/.dori/telemetry.json` 里，发出去的只有它的 sha256。第一次发送时，收集端用这个哈希给这次安装签发一把专属的 ingest key（`POST /v1/register`），key 缓存在 `~/.dori/telemetry.json` 里，收集端返回 401 时就重新签发。代码里不带任何共享 key。第一次运行会打印一行提示。设置 `DORI_TELEMETRY=0` 即可关闭（`DO_NOT_TRACK=1` 也行）；`DORI_TELEMETRY_ENDPOINT` 用来改写收集端的 URL。
-
-| 事件 | 何时 | 字段 |
-|---|---|---|
-| `dori.installed` | 首次运行 | 无 |
-| `dori.daily_active` | 任何 dori 命令，每个 UTC 日一次 | `day_utc` |
-| `dori.lane_started` | `dori start` | `open_lanes` |
-| `dori.lane_ready` | `dori ready` | `evidence_count`、`lane_minutes` |
-| `dori.review_completed` | `dori review` | `verdict`：`CLEAR` 或 `BLOCK` |
-| `dori.merge_decided` | 不带 `--dry-run` 的 `dori merge` | `outcome`：`merged`、`no_receipt`、`review_block`、`no_checks`、`checks_red`、`checks_all_skipped` |
-| `dori.duty_summary` | duty 循环，每小时最多一次 | `ticks`、`flushed`、`nudges`、`escalations`、`lost` |
-
-日活、周活、月活就是从 `dori.daily_active` 算出来的。活跃数按安装计算，所以两个同时启动的运行偶尔多发一次，也不会改变数字。每条记录还带着资源字段：服务名和版本、安装哈希、CI 标志、操作系统类型（`darwin`、`linux` 或 `windows`；其他系统什么都不发）和版本、CPU 架构。永远不会发送的：路径、仓库名、PR 编号、lane 的 key、brief、消息，以及任何其他文本。发送在后台进行，每个请求超时 2 秒；命令退出前最多等它 2 秒，遥测失败也从不让命令失败。
+这个 fork 不发送任何遥测：上游发给 omo 收集端的使用计数已经移除，除了 harness 有意发起的 `gh`、herdr 和 Agent 调用之外，没有任何东西离开这台机器。
 
 ## 测试
 
-在仓库根目录跑 `bun test ./test/`，执行 harness 的 130 个测试，不调用任何模型。直接跑 `bun test` 会把 Dori 模式的测试也带上。
+在仓库根目录跑 `bun test ./test/`，执行 harness 的 119 个测试，不调用任何模型。直接跑 `bun test` 会把 Dori 模式的测试也带上。
 
 8 个 harness 单元测试（`test/harness.test.ts`）跑在一个假 herdr（`test/fake.ts`）上：它是一个录制器，顶替 `herdr` 和 `gh` 二进制，持有若干 Agent 状态可设置的窗格，还带一个由测试拨动的时钟。覆盖的场景有：lane 启动与 READY，lead 忙碌时的排队与成批送达，拒绝未知目标，10 和 20 分钟的催促、40 分钟的上报以及 WAITING 的 lane 不被打扰，working 和 lost 状态，合并门禁的每一个分支（没有回执、BLOCK、空检查列表、一项红色检查、全部跳过、CLEAR 加全绿），以及一个没有 VERDICT 行的评审者。
 
 另有 19 个单元测试（`test/loop.test.ts`）在同一个假 herdr 上跑每小时循环：待办的添加、决定、移除和导入，启动顺序与预算，lane 已满、主机繁忙和有待决问题时的暂缓，done、lost 和已合并 lane 的同步，漏办检查，每个问题只问一次、只提醒一次，急停开关，活着的、已死的和损坏的锁，运行中被抢走的锁，放不回去而留在一旁的锁，lane 启动失败，一直启动失败直到变成问题的项目，两轮之间的等待时间，已经开出来却没能通知 lead 的 lane，试图跑出待办目录的 id，消失的 lane 记录，以及同一毫秒内的两轮。其中两个检查循环从不发出关窗格、合并或推送，漏办检查的测试还确认 lane 记录逐字节不变。
 
-11 个遥测单元测试（`test/telemetry.test.ts`）覆盖：关闭开关；首次提示和每天一次的 `dori.daily_active`；每次安装只签发一次、缓存起来、401 之后重新签发的 key；与注册的 schema 相符的载荷（scope 名称和版本，只有允许的资源键，只有计数）；收集端在 200 响应里拒收的记录（`partialSuccess.rejectedLogRecords`）会被计数；每小时一次的 duty 汇总；离线首次运行时 `dori.installed` 和 `dori.daily_active` 会保留到发送成功为止；状态文件权限为 0600，状态文件损坏也不会抛出异常；调用立即返回，flush 到期限就放弃；同一个目录下同时启动的两次首次运行只会得到一个安装 id；以及收集端不可达或注册被拒时从不抛出异常，也不发送任何日志。
-
-2 个端到端测试（`test/e2e.test.ts`）。第一个在隔离的具名会话里起一个真实的 herdr 服务器，创建工作区，注册 lead 窗格，再启动一条 lane，其 Agent 用 `test/fixtures/fake-agent.sh` 顶替 omp。脚本读取 brief，调用 `dori report` 和 `dori ready`；测试检查 `[START]`、`[REPORT]`、`[READY]` 是否到达 lead 窗格，以及 `dori done` 是否关掉了这条 lane。第二个添加一个待办项目，运行 `dori loop --once`，检查循环启动的 lane 走到 READY、`[LOOP ...]` 到达 lead 窗格，以及 `dori loop stop` 之后的一轮什么也不做。PATH 上没有 `herdr` 时两者都会被跳过；两者都以 `DORI_TELEMETRY=0` 运行。`bun run typecheck` 执行 `tsc --noEmit`。
+2 个端到端测试（`test/e2e.test.ts`）。第一个在隔离的具名会话里起一个真实的 herdr 服务器，创建工作区，注册 lead 窗格，再启动一条 lane，其 Agent 用 `test/fixtures/fake-agent.sh` 顶替 omp。脚本读取 brief，调用 `dori report` 和 `dori ready`；测试检查 `[START]`、`[REPORT]`、`[READY]` 是否到达 lead 窗格，以及 `dori done` 是否关掉了这条 lane。第二个添加一个待办项目，运行 `dori loop --once`，检查循环启动的 lane 走到 READY、`[LOOP ...]` 到达 lead 窗格，以及 `dori loop stop` 之后的一轮什么也不做。PATH 上没有 `herdr` 时两者都会被跳过。`bun run typecheck` 执行 `tsc --noEmit`。
 
 Dori 模式有自己的 304 个测试，跑在假的 herdr、git 和 gh 上：
 
