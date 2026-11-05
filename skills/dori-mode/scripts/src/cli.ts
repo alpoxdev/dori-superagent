@@ -26,6 +26,7 @@ import { slackPresence } from "./messenger/slack-presence.ts";
 import { Telegram } from "./messenger/telegram.ts";
 import { Discord, discordPresence } from "./messenger/discord.ts";
 import { realTimers } from "./messenger/typing.ts";
+import { TypingLedger, typingTick } from "./messenger/typing-ledger.ts";
 import { lines, Relay } from "./relay.ts";
 import { transcribe, TranscriptionError } from "./messenger/voice.ts";
 import { formatVerifyPr, verifyPr } from "./verify-pr.ts";
@@ -70,10 +71,14 @@ const USAGE = `dori <command> [options]
   send <slack|telegram|discord> --to TARGET --text TEXT [--thread ID] [--edit ID]
                                        post or edit a message (tokens from DORI_SLACK_TOKEN, DORI_TELEGRAM_TOKEN, DORI_DISCORD_TOKEN)
   presence <slack|discord>             keep the account shown as online until stopped
+  typing telegram [--pane PANE]        long-running: show the Dori as typing in a chat whose owner message is still
+                                       unanswered while PANE's agent (default leadPane) is working
   transcribe <audio-file>              run hooks.transcribe and print the text
   inbound slack|telegram [--loop MIN]  print INBOUND lines: Slack unread thread replies / Telegram owner DMs, edits and media + configured topic
                                        the Dori posted in (any helper), DMs and channels with unread mentions`;
 
+// An owner message older than this no longer shows the Dori typing, even if it was never answered.
+const TYPING_MAX_MS = 15 * 60_000;
 const die = (message: string, code = 1): never => {
   console.error(message);
   process.exit(code);
@@ -388,6 +393,8 @@ try {
         const target = { chatId: to, ...(thread ? { threadId: Number(thread) } : {}) };
         if (edit) await tg.edit(target, Number(edit), text);
         else console.log(`SENT ${await tg.send(target, text)}`);
+        // A sent or edited message answers the chat: `dori typing telegram` stops showing the Dori as typing there.
+        new TypingLedger(`${config.stateDir}/telegram-typing.json`).replied(target, realClock.now());
       } else if (platform === "discord") {
         const dc = new Discord(fetchHttp, realClock, token("DORI_DISCORD_TOKEN"));
         if (edit) await dc.edit(to, edit, text);
@@ -418,6 +425,22 @@ try {
       } else die("presence needs slack or discord");
       break;
     }
+    case "typing": {
+      if (key !== "telegram") die("typing supports telegram");
+      const tg = new Telegram(fetchHttp, realClock, process.env.DORI_TELEGRAM_TOKEN ?? die("DORI_TELEGRAM_TOKEN is not set"));
+      const pane = opt("pane") || config.leadPane || die("typing needs --pane PANE or leadPane in the config");
+      const ledger = new TypingLedger(`${config.stateDir}/telegram-typing.json`);
+      console.log(`TYPING_READY telegram pane=${pane}`);
+      let warned = "";
+      for (;;) {
+        const warn = await typingTick({ run, ledger, typing: (t) => tg.typing(t), pane, now: realClock.now(), maxMs: TYPING_MAX_MS })
+          .then(() => "")
+          .catch((e: unknown) => `WARN ${e instanceof Error ? e.message : String(e)}`.slice(0, 300));
+        if (warn && warn !== warned) console.log(warn);
+        warned = warn;
+        await Bun.sleep(4_000);
+      }
+    }
     case "inbound": {
       if (key === "telegram") {
         const tg = new Telegram(fetchHttp, realClock, process.env.DORI_TELEGRAM_TOKEN ?? die("DORI_TELEGRAM_TOKEN is not set"));
@@ -439,11 +462,14 @@ try {
           store,
           { ownerId, groupChatId, topicId },
           loopMin,
-          (i) =>
+          (i) => {
+            // Recorded before the line goes out: from here on the Dori shows as typing while the lead works on it.
+            new TypingLedger(`${config.stateDir}/telegram-typing.json`).inbound({ chatId: i.chat, ...(i.thread ? { threadId: i.thread } : {}) }, realClock.now());
             console.log(
               `INBOUND ${i.kind === "edit" ? "edit:" : ""}${i.source} ${i.chat} ${i.thread ?? "-"} ${i.updateId} ${i.from} ${JSON.stringify(i.text ?? "")}` +
                 (i.media === undefined ? "" : ` file=${i.media.kind}:${i.media.fileId}`),
-            ),
+            );
+          },
           (m) => console.log(`WARN ${m}`.slice(0, 300)),
         );
         break;
