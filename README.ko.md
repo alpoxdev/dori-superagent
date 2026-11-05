@@ -4,11 +4,11 @@
 
 # dori-superagent
 
-코딩 에이전트 세션 여러 개를 능동적으로 굴리는 하네스입니다. TypeScript 약 1,600줄이고, [herdr](https://github.com/herdrdev/herdr)와 [omo](https://github.com/code-yeongyu/oh-my-openagent) 위에서 돕니다.
+코딩 에이전트 세션 여러 개를 능동적으로 굴리는 하네스입니다. TypeScript 약 1,600줄이고, [herdr](https://github.com/herdrdev/herdr)와 [omp](https://github.com/can1357/oh-my-pi) (oh-my-pi) 위에서 돕니다.
 
 [English](README.md) | 한국어 | [简体中文](README.zh-CN.md) | [日本語](README.ja.md)
 
-사람과 이야기하는 세션은 리드 하나입니다. 작업은 하나하나 레인(lane)으로 돌아갑니다. 레인은 자기 herdr 탭에 뜬 omo 세션 하나로, 글로 쓴 브리프를 받아 시작하고 증거가 붙은 READY로 끝납니다. 듀티(duty) 루프는 조용해진 레인을 찔러 보고, 그래도 안 되면 리드에게 올리고, 바쁜 pane에 갈 메시지는 읽을 수 있을 때까지 들고 있습니다. 머지는 게이트를 지나는데, 게이트가 요구하는 것은 정확히 그 head에서 받은 CLEAR 리뷰 영수증과 녹색 체크입니다.
+사람과 이야기하는 세션은 리드 하나입니다. 작업은 하나하나 레인(lane)으로 돌아갑니다. 레인은 자기 herdr 탭에 뜬 omp 세션 하나로, 글로 쓴 브리프를 받아 시작하고 증거가 붙은 READY로 끝납니다. 듀티(duty) 루프는 조용해진 레인을 찔러 보고, 그래도 안 되면 리드에게 올리고, 바쁜 pane에 갈 메시지는 읽을 수 있을 때까지 들고 있습니다. 머지는 게이트를 지나는데, 게이트가 요구하는 것은 정확히 그 head에서 받은 CLEAR 리뷰 영수증과 녹색 체크입니다.
 
 ## 왜 만들었나
 
@@ -24,7 +24,7 @@ DeepSeek이 [dsh-superagent-prototype](https://github.com/deepseek-ai/dsh-supera
 
 매일 이렇게 일합니다. omo는 star가 7만 개를 넘었습니다. 2026-10-03부터 2026-11-02까지 31일 동안 [작성자의 GitHub 기여 그래프](https://github.com/code-yeongyu)에 찍힌 contribution은 38,656건입니다. 하루 평균 약 1,250건이고, 최고치는 2026-10-16의 2,227건과 2026-10-29의 2,001건입니다. 하루에 많게는 2,000건 가까이이고, 이 셋업의 풀 버전으로 낸 숫자입니다.
 
-이 저장소 루트의 하네스는 그 최소 버전입니다. herdr와 omo만으로 돌아가는 부분만 있고, 다른 것은 붙이지 않았습니다.
+이 저장소 루트의 하네스는 그 최소 버전입니다. herdr와 코딩 에이전트만으로 돌아가는 부분만 있고, 다른 것은 붙이지 않았습니다. 이 포크는 omo 대신 omp 위에서 돌립니다.
 
 ## 같은 구조, 같은 철학
 
@@ -38,7 +38,7 @@ DeepSeek 프로토타입의 문서를 Dori 옆에 놓으면 개념이 하나하�
 |---|---|
 | Source: GitHub, Feishu | Dori는 채팅에 삽니다. Slack, Discord, Telegram |
 | Trigger, Eval, Ticket 순서 | 채팅에서 부탁한 일 하나가 티켓 하나가 됩니다 |
-| 티켓마다 Executor 세션 하나: 세션 하나, 작업 디렉터리 하나 | 작업마다 코딩 에이전트 세션 하나. omo 위에서 돌고, 여러 개가 병렬로 돕니다 |
+| 티켓마다 Executor 세션 하나: 세션 하나, 작업 디렉터리 하나 | 작업마다 코딩 에이전트 세션 하나. omp 위에서 돌고, 여러 개가 병렬로 돕니다 |
 | Channel: 원래 대화에 답함, 예를 들어 PR로 | 같은 채널에 보고합니다. 작업당 상태 메시지 하나를 제자리에서 고쳐 씁니다 |
 | Panel: 사람이 봐야 할 것만 보여 줌 | 티켓 보드와 Notion이 알아서 최신 상태를 유지합니다 |
 
@@ -51,32 +51,32 @@ DeepSeek 프로토타입의 문서를 Dori 옆에 놓으면 개념이 하나하�
 | 사람이 움직여야 할 때만 말하고, 질문은 한 번에 하나 | 결정 요청에는 선택지, Dori의 추천, 그림 한 장이 같이 갑니다 |
 | 정직하게 보고하고, 막힌 것을 우회하지 않음 | 증거 없는 'done'은 없습니다. 실제 사례로 확인하고, 머지된 결과를 보고합니다 |
 
-Dori 열은 저희가 실제로 굴리는 프로덕션 Dori와 Dori 모드(`skills/dori-mode`)입니다. 이 저장소 루트의 하네스는 그중 레인, 인박스, 듀티, 머지 게이트 부분을 herdr와 omo 위에 구현합니다.
+Dori 열은 저희가 실제로 굴리는 프로덕션 Dori와 Dori 모드(`skills/dori-mode`)입니다. 이 저장소 루트의 하네스는 그중 레인, 인박스, 듀티, 머지 게이트 부분을 herdr와 omp 위에 구현합니다.
 
 ## 아키텍처
 
 ![architecture](docs/architecture.png)
 
-역할은 셋이고, 각각 herdr pane 하나에 뜬 omo 세션입니다. herdr가 워크스페이스, 탭, pane을 만들어 주고, pane 안의 omo를 에이전트로 알아보고, 그 상태(idle, working, blocked, done)를 CLI로 알려 줍니다. dori는 pane에 무엇을 하든 그 전에 이 상태부터 읽습니다.
+역할은 셋이고, 각각 herdr pane 하나에 뜬 omp 세션입니다. herdr가 워크스페이스, 탭, pane을 만들어 주고, pane 안의 omp를 에이전트로 알아보고(omp 통합으로, `herdr integration install omp`), 그 상태(idle, working, blocked, done)를 CLI로 알려 줍니다. dori는 pane에 무엇을 하든 그 전에 이 상태부터 읽습니다.
 
 리드는 사람과 대화하는 유일한 세션입니다. 요청을 브리프로 바꾸고, `dori start`로 레인을 열고, 레인이 보내오는 것을 읽고, 머지합니다.
 
-레인은 자기 herdr 탭에 뜬 omo 세션 하나입니다. 브리프 하나에 레인 규칙(`prompts/lane-footer.md`)을 덧붙여서 시작합니다. 중간 결과는 `dori report`로 보고하고 `dori ready`로 끝내는데, `dori ready`는 증거 링크가 없으면 나가지 않습니다.
+레인은 자기 herdr 탭에 뜬 omp 세션 하나입니다. 브리프 하나에 레인 규칙(`prompts/lane-footer.md`)을 덧붙여서 시작합니다. 중간 결과는 `dori report`로 보고하고 `dori ready`로 끝내는데, `dori ready`는 증거 링크가 없으면 나가지 않습니다.
 
-듀티 루프는 `dori duty --interval 60`입니다. 듀티 omo 세션 옆 pane에서 도는 보통 프로세스입니다. 틱마다 idle이 된 pane에 쌓인 메시지를 밀어 넣고, 조용한 레인을 찔러 보고, 리드에게 올리고, pane이 사라진 레인은 lost로 표시합니다. 긴급 정지는 `dori duty stop --text '이유'`입니다. `dori duty resume` 전까지 틱마다 `DUTY stopped: <이유>`만 출력하고 듀티 일은 모두 건너뜁니다(밀어 넣기, 찌르기, 올리기, 듀티 카운트 없음). 쌓인 메시지는 inbox에서 기다립니다. `dori duty status`는 멈췄는지와 그 이유를 보여 줍니다.
+듀티 루프는 `dori duty --interval 60`입니다. 듀티 omp 세션 옆 pane에서 도는 보통 프로세스입니다. 틱마다 idle이 된 pane에 쌓인 메시지를 밀어 넣고, 조용한 레인을 찔러 보고, 리드에게 올리고, pane이 사라진 레인은 lost로 표시합니다. 긴급 정지는 `dori duty stop --text '이유'`입니다. `dori duty resume` 전까지 틱마다 `DUTY stopped: <이유>`만 출력하고 듀티 일은 모두 건너뜁니다(밀어 넣기, 찌르기, 올리기, 듀티 카운트 없음). 쌓인 메시지는 inbox에서 기다립니다. `dori duty status`는 멈췄는지와 그 이유를 보여 줍니다.
 
 상태는 `~/.dori`(또는 `$DORI_HOME`) 아래 JSON입니다. `lanes/`, `inbox/`, `briefs/`, `receipts/`, 그리고 한 시간 루프가 쓰는 `backlog/`와 `loop/`, 듀티 루프의 정지 파일이 놓이는 `duty/`. 에이전트 세션을 빼면 하네스가 더하는 상주 프로세스는 듀티 루프와 한 시간 루프 둘뿐이고, 런타임 의존성은 Bun 하나뿐입니다.
 
 ![lane lifecycle](docs/lane-flow.png)
 
-`dori start <key> --brief FILE`은 브리프와 레인 규칙을 `~/.dori/briefs/<key>.md`에 쓰고, 탭을 열고, `omo 'Read your brief at <path> and execute it. Your lane key is <key>.'`를 실행하고, 레인을 `working`으로 기록하고, 리드에게 `[START <key>]`를 보냅니다. 그다음부터 레인은 보고하고(`[REPORT <key>]`, 자기 pane 바깥의 무언가에 막혔으면 `[REPORT <key> WAITING]`), 증거 링크를 붙인 `[READY <key>]`로 끝냅니다. 리드는 증거를 확인하고, PR이 있으면 `dori review`와 `dori merge`를 돌리고, `dori done <key>`로 레인을 닫습니다. 가만히 있는 레인은 10분과 20분에 nudge를 받고 40분에 리드로 올라갑니다(`[ESCALATE <key>]`). READY 전에 pane이 사라진 레인은 `[LOST <key>]`로 보고됩니다.
+`dori start <key> --brief FILE`은 브리프와 레인 규칙을 `~/.dori/briefs/<key>.md`에 쓰고, 탭을 열고, `omp 'Read your brief at <path> and execute it. Your lane key is <key>.'`를 실행하고, 레인을 `working`으로 기록하고, 리드에게 `[START <key>]`를 보냅니다. 그다음부터 레인은 보고하고(`[REPORT <key>]`, 자기 pane 바깥의 무언가에 막혔으면 `[REPORT <key> WAITING]`), 증거 링크를 붙인 `[READY <key>]`로 끝냅니다. 리드는 증거를 확인하고, PR이 있으면 `dori review`와 `dori merge`를 돌리고, `dori done <key>`로 레인을 닫습니다. 가만히 있는 레인은 10분과 20분에 nudge를 받고 40분에 리드로 올라갑니다(`[ESCALATE <key>]`). READY 전에 pane이 사라진 레인은 `[LOST <key>]`로 보고됩니다.
 
 ## DeepSeek super-agent 대응표
 
 | DeepSeek super-agent | dori | 이 저장소에서 |
 |---|---|---|
 | Router 세션: 사람과 대화하고 일을 나눠 줌 | LEAD 세션: 사람과 대화하는 유일한 세션. 레인을 열고 머지함 | `prompts/lead.md`, `src/cli.ts`의 `up()` |
-| Worker 세션, 티켓마다 하나 | LANE: 작업마다 omo 세션 하나. 자기 herdr 탭과 자기 브리프 | `src/harness.ts`의 `startLane()`, `prompts/lane-footer.md` |
+| Worker 세션, 티켓마다 하나 | LANE: 작업마다 omp 세션 하나. 자기 herdr 탭과 자기 브리프 | `src/harness.ts`의 `startLane()`, `prompts/lane-footer.md` |
 | Ticket + Mandate | 브리프 파일 + 레인 규칙 푸터, 그리고 증거가 꼭 붙어야 하는 READY | `~/.dori/briefs/<key>.md`, `src/harness.ts`의 `ready()` |
 | 트리거 배칭: 이벤트를 턴마다 묶음 | pane 인박스: 바쁜 pane에 보낸 메시지는 큐에 쌓였다가 idle이 되면 한 묶음으로 도착 | `src/harness.ts`의 `send()`, `flushInbox()`; `src/store.ts`의 `inbox/` |
 | Watchdog | DUTY 루프: 인박스를 비우고, 10/20분에 nudge, 40분에 리드로 올리고, 사라진 pane 감지 | `src/harness.ts`의 `dutyTick()`, `prompts/duty.md`, `prompts/nudge.md` |
@@ -87,10 +87,12 @@ Dori 열은 저희가 실제로 굴리는 프로덕션 Dori와 Dori 모드(`skil
 
 ## 빠른 시작
 
-Bun 1.3 이상, herdr, omo, 그리고 GitHub CLI `gh`가 필요합니다. `gh`는 PR의 head SHA와 체크를 읽고 머지할 때 씁니다.
+Bun 1.3 이상(omp 자체는 1.4.4 이상 필요), omp 통합을 설치한 herdr, [omp](https://github.com/can1357/oh-my-pi), 그리고 GitHub CLI `gh`가 필요합니다. `gh`는 PR의 head SHA와 체크를 읽고 머지할 때 씁니다.
 
 ```sh
-git clone https://github.com/sisyphuslabs/dori-superagent
+curl -fsSL https://omp.sh/install | sh      # 아니면: bun install -g @oh-my-pi/pi-coding-agent
+herdr integration install omp               # herdr가 각 omp의 상태(idle, working, blocked)를 읽게 합니다
+git clone https://github.com/alpoxdev/dori-superagent
 cd dori-superagent
 bun install
 bun link   # puts `dori` on your PATH; or write `bun src/cli.ts` wherever `dori` appears below
@@ -103,7 +105,7 @@ dori up
 # UP lead=w1:p1 duty=w1:p2 loop=w1:p3 hourly=w1:p4 home=~/.dori
 ```
 
-`dori`라는 herdr 워크스페이스가 열립니다. 리드 pane(시스템 프롬프트 뒤에 `prompts/lead.md`를 붙인 omo), 듀티 pane(`prompts/duty.md`를 붙인 omo), 그 아래 듀티 루프, 또 그 아래 한 시간 루프입니다. 리드 pane에 말을 걸면 됩니다. 리드가 브리프(목표, 입력, 결과물, 종료 조건, 제약. [`examples/brief.md`](examples/brief.md) 참고)를 쓰고 레인을 직접 엽니다. 셸에서 열어도 됩니다.
+`dori`라는 herdr 워크스페이스가 열립니다. 리드 pane(시스템 프롬프트 뒤에 `prompts/lead.md`를 붙인 omp), 듀티 pane(`prompts/duty.md`를 붙인 omp), 그 아래 듀티 루프, 또 그 아래 한 시간 루프입니다. 리드 pane에 말을 걸면 됩니다. 리드가 브리프(목표, 입력, 결과물, 종료 조건, 제약. [`examples/brief.md`](examples/brief.md) 참고)를 쓰고 레인을 직접 엽니다. 셸에서 열어도 됩니다.
 
 ```sh
 dori start fix-flaky-login --brief examples/brief.md
@@ -115,7 +117,7 @@ dori status
 
 레인 키는 `^[a-z][a-z0-9-]{1,40}$`에 맞아야 하고, 이미 열린 키는 거절됩니다.
 
-레인 안의 omo는 레인 규칙이 건네준 명령으로 보고하고 끝냅니다.
+레인 안의 omp는 레인 규칙이 건네준 명령으로 보고하고 끝냅니다.
 
 ```sh
 dori report fix-flaky-login --text 'reproduced: 1 failure in 20 runs, shared session fixture'
@@ -126,13 +128,13 @@ dori ready fix-flaky-login --text 'root cause fixed in owner/repo#12, checks gre
 리드는 `[READY fix-flaky-login]`을 받으면:
 
 ```sh
-dori review owner/repo#12            # fresh omo reviewer pinned to the head SHA; writes a receipt; exit 0 on CLEAR
+dori review owner/repo#12            # fresh omp reviewer pinned to the head SHA; writes a receipt; exit 0 on CLEAR
 dori merge owner/repo#12 --dry-run   # MERGE_OK ... (dry run), or MERGE_REFUSED <why> with exit 2
 dori merge owner/repo#12             # gh pr merge --squash --match-head-commit <sha>
 dori done fix-flaky-login            # closes the lane's pane; only a READY lane can be closed
 ```
 
-`dori send <lead|duty|key|pane> --text '...'`는 pane에 메시지를 전달하고, pane이 바쁘면 큐에 넣습니다. `dori role <lead|duty> [PANE]`은 `dori up`을 쓰지 않았을 때 pane을 손으로 등록합니다. `--text`를 빼면 stdin에서 읽습니다. 에이전트가 보는 명령은 `src/cli.ts`의 전체 경로와 `DORI_HOME`이 채워진 채로 렌더링되므로, 에이전트의 PATH에 `dori`가 없어도 됩니다. 환경 변수는 `DORI_HOME`(상태 디렉터리, 기본 `~/.dori`), `DORI_AGENT_CMD`(기본 `omo`), `DORI_HERDR_SESSION`(이름 붙인 herdr 세션), `DORI_CMD`(에이전트에게 알려 줄 dori 호출법)입니다.
+`dori send <lead|duty|key|pane> --text '...'`는 pane에 메시지를 전달하고, pane이 바쁘면 큐에 넣습니다. `dori role <lead|duty> [PANE]`은 `dori up`을 쓰지 않았을 때 pane을 손으로 등록합니다. `--text`를 빼면 stdin에서 읽습니다. 에이전트가 보는 명령은 `src/cli.ts`의 전체 경로와 `DORI_HOME`이 채워진 채로 렌더링되므로, 에이전트의 PATH에 `dori`가 없어도 됩니다. 환경 변수는 `DORI_HOME`(상태 디렉터리, 기본 `~/.dori`), `DORI_AGENT_CMD`(기본 `omp`), `DORI_HERDR_SESSION`(이름 붙인 herdr 세션), `DORI_CMD`(에이전트에게 알려 줄 dori 호출법)입니다.
 
 ## 하네스가 강제하는 것
 
@@ -144,7 +146,7 @@ READY에는 증거가 붙어야 합니다. `dori ready`는 `--evidence` 링크�
 
 nudge는 10분, 20분, 40분입니다. `src/harness.ts`의 `NUDGE_MINUTES = [10, 20, 40]`입니다. 10분 동안 보고가 없고 pane도 working이 아닌 레인은 자기 pane에 `prompts/nudge.md`를 받습니다. 20분에 한 번 더 받습니다. 40분이 되면 듀티 루프는 nudge를 그만두고 리드에게 `[ESCALATE <key>]`를 보냅니다. `working`인 pane은 idle 시계가 되돌아가고, `--status waiting`으로 보고했거나 pane이 `blocked`인 레인은 건드리지 않고, 새 보고가 오면 nudge 횟수가 0으로 돌아가고, pane이 사라지면 `[LOST <key>]`로 보고됩니다.
 
-머지에는 정확한 head의 CLEAR 영수증과 녹색 체크가 필요합니다. `dori merge`는 `gh`로 PR의 head SHA를 읽고, 그 SHA에 대한 영수증이 `~/.dori/receipts/`에 verdict `CLEAR`로 있어야 넘어갑니다. 영수증을 쓰는 것은 `dori review`뿐입니다. `dori review`는 그 SHA에 고정한 `prompts/review.md`로 새 비대화형 omo(`omo -p --no-session`, 필요하면 `--model`)를 돌리고, 리뷰어가 `VERDICT:` 줄을 출력하지 않으면 영수증을 쓰지 않습니다. 그다음 `gh pr checks`가 체크를 하나 이상 돌려줘야 하고, 모든 체크가 `pass`나 `skipping`이어야 하고, 그중 하나 이상은 `pass`여야 합니다. 빈 체크 목록은 "an empty check list is never green"으로 거절합니다. 머지 자체는 `gh pr merge --squash --match-head-commit <sha>`입니다. 리뷰 뒤에 push가 들어오면 head SHA가 바뀌어 영수증이 맞지 않게 되고, 머지는 거절됩니다(`src/harness.ts`의 `review()`와 `mergeGate()`).
+머지에는 정확한 head의 CLEAR 영수증과 녹색 체크가 필요합니다. `dori merge`는 `gh`로 PR의 head SHA를 읽고, 그 SHA에 대한 영수증이 `~/.dori/receipts/`에 verdict `CLEAR`로 있어야 넘어갑니다. 영수증을 쓰는 것은 `dori review`뿐입니다. `dori review`는 그 SHA에 고정한 `prompts/review.md`로 새 비대화형 omp(`omp -p --no-session`, 필요하면 `--model`)를 돌리고, 리뷰어가 `VERDICT:` 줄을 출력하지 않으면 영수증을 쓰지 않습니다. 그다음 `gh pr checks`가 체크를 하나 이상 돌려줘야 하고, 모든 체크가 `pass`나 `skipping`이어야 하고, 그중 하나 이상은 `pass`여야 합니다. 빈 체크 목록은 "an empty check list is never green"으로 거절합니다. 머지 자체는 `gh pr merge --squash --match-head-commit <sha>`입니다. 리뷰 뒤에 push가 들어오면 head SHA가 바뀌어 영수증이 맞지 않게 되고, 머지는 거절됩니다(`src/harness.ts`의 `review()`와 `mergeGate()`).
 
 ## 한 시간 루프
 
@@ -174,16 +176,16 @@ dori backlog list
 Dori 모드는 메신저 쪽 절반으로, 2026-10-07에 이 저장소에서 공개됐습니다. 코딩 에이전트 세션 하나를 메신저로 말을 거는, 늘 켜져 있는 에이전트로 만듭니다. 그 세션은 일마다 herdr 탭에 에이전트 세션을 따로 띄워 맡기고, 자기가 띄운 세션을 전부 레지스트리에 적어 두고, 일이 끝났다는 증명이 있어야 닫습니다. 증명은 머지된 PR, 닫힌 이슈, 배포된 버전, 아니면 스스로 돌려 볼 수 있는 체크입니다. 스킬(`skills/dori-mode/SKILL.md`와 `references/`)과 자체 Bun + TypeScript CLI로 나가고, CLI 이름도 `dori`입니다.
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/sisyphuslabs/dori-superagent/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/alpoxdev/dori-superagent/main/install.sh | bash
 ```
 
-이 한 줄이 저장소를 `~/.dori/src`에 클론하고, 스킬을 `~/.agents/skills/dori-mode`에 링크하고, `bun link`로 Dori 모드의 `dori`를 PATH에 올리고, 예시 설정을 `~/.dori/config.json`에 복사합니다. 명령, 설정, 라우팅, done 프로토콜은 [`skills/dori-mode/SKILL.md`](skills/dori-mode/SKILL.md)와 그 [`references/`](skills/dori-mode/references/)에 있습니다.
+이 한 줄이 저장소를 `~/.dori/src`에 클론하고, 스킬을 `~/.agents/skills/dori-mode`에 링크하고(omp가 이곳에서 스킬을 읽습니다), `bun link`로 Dori 모드의 `dori`를 PATH에 올리고, herdr와 omp가 있으면 herdr의 omp 통합을 설치하고, 예시 설정을 `~/.dori/config.json`에 복사합니다. 레인은 `omp --model <model> --goal '<prompt>'`로 시작하므로, 레인마다 자기 브리프를 omp 목표로 삼고 일합니다. omp에는 줄을 걸러 주는 모니터가 없어서, 감시자(`dori watch`, 스윕, 인바운드 루프)는 `dori relay`로 돌며 조건에 맞는 줄마다 Dori의 pane에 입력합니다. 명령, 설정, 라우팅, done 프로토콜은 [`skills/dori-mode/SKILL.md`](skills/dori-mode/SKILL.md)와 그 [`references/`](skills/dori-mode/references/)에 있습니다.
 
 하네스와 Dori 모드 둘 다 `dori`라는 명령을 내놓습니다. 한 머신에는 하나만 설치하거나, 하네스는 `bun src/cli.ts`로 부르고 `dori`는 Dori 모드에 맡기면 됩니다. 하네스의 프롬프트는 자기 명령을 `src/cli.ts`의 전체 경로로 부르므로, 하네스가 띄운 에이전트는 PATH의 `dori`가 어느 쪽이든 상관없습니다.
 
 ## 범위
 
-최소 실험입니다. 하네스는 Bun 위의 TypeScript 약 1,600줄에 런타임 의존성이 없고, 저희의 프로덕션 스택은 아닙니다. 일부러 뺀 것은 머신 간 메시, heavy-slot 스케줄링, 채팅과 티켓 트래커 브리지, 테스트 스위트 전체에 대한 영수증입니다. 여기 있는 것은 herdr와 omo만으로 돌아가는 부분입니다. 역할, 레인, 인박스, 듀티 루프, 한 시간 루프와 백로그, 리뷰와 머지 게이트. `skills/dori-mode`의 Dori 모드는 별개의 CLI입니다. 메신저 기능, 호스트 가드, heavy-slot 러너가 따로 있고, 하네스는 거기서 아무것도 import하지 않습니다.
+최소 실험입니다. 하네스는 Bun 위의 TypeScript 약 1,600줄에 런타임 의존성이 없고, 저희의 프로덕션 스택은 아닙니다. 일부러 뺀 것은 머신 간 메시, heavy-slot 스케줄링, 채팅과 티켓 트래커 브리지, 테스트 스위트 전체에 대한 영수증입니다. 여기 있는 것은 herdr와 omp만으로 돌아가는 부분입니다. 역할, 레인, 인박스, 듀티 루프, 한 시간 루프와 백로그, 리뷰와 머지 게이트. `skills/dori-mode`의 Dori 모드는 별개의 CLI입니다. 메신저 기능, 호스트 가드, heavy-slot 러너가 따로 있고, 하네스는 거기서 아무것도 import하지 않습니다.
 
 ## 텔레메트리
 
@@ -203,7 +205,7 @@ dori는 omo와 같은 방식으로 익명 사용 횟수를 보냅니다. OTLP/HT
 
 ## 테스트
 
-저장소 루트에서 `bun test ./test/`를 치면 하네스 테스트 76개가 돌고, 모델은 부르지 않습니다. 그냥 `bun test`를 치면 Dori 모드 테스트까지 같이 돕니다.
+저장소 루트에서 `bun test ./test/`를 치면 하네스 테스트 130개가 돌고, 모델은 부르지 않습니다. 그냥 `bun test`를 치면 Dori 모드 테스트까지 같이 돕니다.
 
 하네스 단위 테스트 8개(`test/harness.test.ts`)는 가짜 herdr(`test/fake.ts`)를 상대로 돕니다. `herdr`와 `gh` 바이너리 대신 들어가는 레코더로, 에이전트 상태를 바꿀 수 있는 pane들을 들고 있고, 테스트가 손으로 돌리는 시계가 있습니다. 다루는 것은 레인 시작과 READY, 바쁜 리드의 큐와 묶음 전달, 모르는 대상 거절, 10분과 20분의 nudge와 40분의 에스컬레이션과 WAITING 레인 제외, working과 lost 상태, 머지 게이트의 모든 분기(영수증 없음, BLOCK, 빈 체크 목록, 빨간 체크, 전부 skip, CLEAR + 녹색), VERDICT 줄 없는 리뷰어입니다.
 
@@ -211,9 +213,9 @@ dori는 omo와 같은 방식으로 익명 사용 횟수를 보냅니다. OTLP/HT
 
 텔레메트리 단위 테스트 11개(`test/telemetry.test.ts`)는 끄기, 첫 실행 안내와 하루 한 번의 `dori.daily_active`, 설치별 키를 한 번만 발급받아 캐시하고 401 뒤에 다시 발급받는 것, 등록된 스키마에 맞는 페이로드(scope 이름과 버전, 허용된 리소스 키만, 횟수만), 수집기가 200 응답 안에서 거절한 레코드(`partialSuccess.rejectedLogRecords`)를 따로 세는 것, 한 시간 단위 듀티 요약, 오프라인에서 처음 실행해도 `dori.installed`와 `dori.daily_active`를 전송이 성공할 때까지 남겨 두는 것, 상태 파일 권한이 0600이고 깨진 상태 파일에도 throw하지 않는 것, 호출이 바로 돌아오고 flush가 기한에 포기하는 것, 같은 홈에서 동시에 시작한 첫 실행 둘이 설치 id 하나를 나눠 쓰는 것, 수집기에 닿지 않거나 등록이 거절돼도 throw하지 않고 로그도 보내지 않는 것을 확인합니다.
 
-엔드투엔드 테스트 2개(`test/e2e.test.ts`) 중 첫 번째는 격리된 이름의 세션에 진짜 herdr 서버를 띄우고, 워크스페이스를 만들고, 리드 pane을 등록하고, omo 대신 `test/fixtures/fake-agent.sh`를 에이전트로 쓰는 레인을 시작합니다. 이 스크립트는 브리프를 읽고 `dori report`와 `dori ready`를 부르고, 테스트는 `[START]`, `[REPORT]`, `[READY]`가 리드 pane에 도착하는지와 `dori done`이 레인을 닫는지 확인합니다. 두 번째는 백로그 항목을 넣고 `dori loop --once`를 돌린 뒤, 루프가 시작한 레인이 READY까지 가는지, `[LOOP ...]`가 리드 pane에 도착하는지, `dori loop stop` 뒤의 실행이 아무것도 하지 않는지 확인합니다. 둘 다 PATH에 `herdr`가 없으면 건너뛰고, `DORI_TELEMETRY=0`으로 돕니다. `bun run typecheck`는 `tsc --noEmit`입니다.
+엔드투엔드 테스트 2개(`test/e2e.test.ts`) 중 첫 번째는 격리된 이름의 세션에 진짜 herdr 서버를 띄우고, 워크스페이스를 만들고, 리드 pane을 등록하고, omp 대신 `test/fixtures/fake-agent.sh`를 에이전트로 쓰는 레인을 시작합니다. 이 스크립트는 브리프를 읽고 `dori report`와 `dori ready`를 부르고, 테스트는 `[START]`, `[REPORT]`, `[READY]`가 리드 pane에 도착하는지와 `dori done`이 레인을 닫는지 확인합니다. 두 번째는 백로그 항목을 넣고 `dori loop --once`를 돌린 뒤, 루프가 시작한 레인이 READY까지 가는지, `[LOOP ...]`가 리드 pane에 도착하는지, `dori loop stop` 뒤의 실행이 아무것도 하지 않는지 확인합니다. 둘 다 PATH에 `herdr`가 없으면 건너뛰고, `DORI_TELEMETRY=0`으로 돕니다. `bun run typecheck`는 `tsc --noEmit`입니다.
 
-Dori 모드에는 가짜 herdr, git, gh를 상대로 하는 자체 테스트 254개가 있습니다.
+Dori 모드에는 가짜 herdr, git, gh를 상대로 하는 자체 테스트 304개가 있습니다.
 
 ```sh
 cd skills/dori-mode/scripts && bun install && bun test
