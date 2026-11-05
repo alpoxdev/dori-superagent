@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Installs the dori-mode skill and the `dori` CLI.
-# Usage: curl -fsSL https://raw.githubusercontent.com/sisyphuslabs/dori-superagent/main/install.sh | bash
-# Needs: git, bun 1.3+. Optional env: DORI_SRC (clone dir), SKILLS_DIR (where your agent loads skills),
-# DORI_NO_PULL=1 (or true, yes: install an existing checkout as it is, without pulling).
+# Usage: curl -fsSL https://raw.githubusercontent.com/alpoxdev/dori-superagent/main/install.sh | bash
+# Needs: git, bun 1.3+ (omp itself needs bun 1.4.4+). Optional env: DORI_SRC (clone dir), SKILLS_DIR (where your agent
+# loads skills; omp reads ~/.agents/skills), DORI_NO_PULL=1 (or true, yes: install an existing checkout as it is, without pulling).
 set -euo pipefail
 
-repo="https://github.com/sisyphuslabs/dori-superagent.git"
+repo="https://github.com/alpoxdev/dori-superagent.git"
 src="${DORI_SRC:-$HOME/.dori/src}"
 skills="${SKILLS_DIR:-$HOME/.agents/skills}"
 
@@ -45,6 +45,14 @@ fi
 
 mkdir -p "$HOME/.dori"
 [ -f "$HOME/.dori/config.json" ] || cp "$src/skills/dori-mode/references/config.example.json" "$HOME/.dori/config.json"
+
+# herdr reads each omp's state (idle, working, blocked) from an omp extension; without it dori cannot tell a busy
+# lane from an idle one. Installing it again is a no-op.
+if command -v herdr >/dev/null && command -v omp >/dev/null; then
+  herdr integration install omp >/dev/null || echo "herdr integration install omp failed; run it yourself" >&2
+else
+  echo "Install herdr and omp, then run: herdr integration install omp" >&2
+fi
 
 echo "Installed. Skill: $skills/dori-mode  CLI: dori  Config: ~/.dori/config.json"
 echo "Next: edit ~/.dori/config.json, then tell your agent: Dori mode"

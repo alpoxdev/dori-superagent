@@ -17,18 +17,18 @@ services:
     cpus: "4"
     mem_limit: 8g
     # no credentials and no secrets in this file or in the image; interactive logins
-    # (gh, agent-messenger, omo providers) are done once inside the running container
+    # (gh, agent-messenger, omp providers) are done once inside the running container
     # and persist in the volumes below
     volumes:
       - dori-state:/home/dori/.dori
-      - omo-state:/home/dori/.omo
+      - omp-state:/home/dori/.omp
       - gh-auth:/home/dori/.config/gh
       - messenger-auth:/home/dori/.config/agent-messenger
       - projects:/home/dori/projects
 
 volumes:
   dori-state: {}
-  omo-state: {}
+  omp-state: {}
   gh-auth: {}
   messenger-auth: {}
   projects: {}

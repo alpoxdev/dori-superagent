@@ -12,11 +12,12 @@ against a pinned sha256; npm packages and the harness are pinned by version and 
 ## Files
 
 - `examples/container/Dockerfile` — Ubuntu 24.04 with gh, node, bun and herdr
-  sha256-verified, plus agent-messenger, omo and the dori harness pinned by version
+  sha256-verified, plus agent-messenger, omp and the dori harness pinned by version
   and commit.
 - `examples/container/compose.yaml` — one `dori` service with named volumes for all
   state, sized like a small dev machine.
-- `examples/container/entrypoint.sh` — warms the herdr server, then runs the command.
+- `examples/container/entrypoint.sh` — installs herdr's omp integration (so herdr sees
+  each omp's state), warms the herdr server, then runs the command.
 
 Ubuntu, not Alpine: bun and herdr need glibc.
 
@@ -46,7 +47,7 @@ Inside the container, do the interactive logins once — they persist in the vol
 ```sh
 gh auth login                      # gh-auth volume
 agent-messenger auth telegram      # messenger-auth volume (per your platform)
-# omo providers: /login inside omo, or your provider's API key path — omo-state volume
+# omp providers: /login inside omp, or your provider's API key path — omp-state volume
 ```
 
 Clone the repos the Dori should work on into `~/projects` (the `projects` volume), then
@@ -70,7 +71,7 @@ All volume state, because nothing lives in the container filesystem. Running pan
 do not survive a restart; run `dori up` again:
 
 - `~/.dori` — harness state, lanes, inbox (`dori-state`)
-- `~/.omo` — omo config, auth, memory (`omo-state`)
+- `~/.omp` — omp config, auth, sessions, memory, herdr's omp extension (`omp-state`)
 - `~/.config/gh` — GitHub auth (`gh-auth`)
 - `~/.config/agent-messenger` — messenger auth (`messenger-auth`)
 - `~/projects` — repo checkouts (`projects`)
@@ -80,7 +81,7 @@ pinned tools are rebuilt when you ask for it.
 
 ## Sizing
 
-The container runs the omo sessions plus their builds and tests, so size it like a dev
+The container runs the omp sessions plus their builds and tests, so size it like a dev
 machine, not like a microservice. The compose file starts at 4 CPUs and 8 GB; scale to
 your lanes. Disk grows with the `projects` volume (checkouts, build artifacts) — give
 the docker data root tens of gigabytes.
@@ -88,7 +89,7 @@ the docker data root tens of gigabytes.
 ## When a VM is the simpler choice
 
 A container adds a layer over the host with no benefit for a single Dori: a plain VM
-(or bare metal box) with bun, herdr, omo, gh and agent-messenger installed gives the
+(or bare metal box) with bun 1.4.4+, herdr (plus `herdr integration install omp`), omp, gh and agent-messenger installed gives the
 same layout, the same `dori up`, and one less abstraction when something breaks. Reach
 for the container when you want the recipe reproducible from a Dockerfile, want to run
 several Doris isolated on one host, or cannot hand out VMs.

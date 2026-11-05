@@ -10,14 +10,14 @@ ARG TARGETARCH
 ARG NODE_VERSION=24.21.0
 ARG NODE_SHA256_AMD64=6e1db87ef58b8819e5d5402eff1536491b18edd8eb7bee5ef7897876e88dc5ff
 ARG NODE_SHA256_ARM64=724282c3b43aec998aa9527380465b45d229e021b58035f5f4f63095eabfe5d5
-ARG BUN_VERSION=1.4.2
-ARG BUN_SHA256_AMD64=36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913
-ARG BUN_SHA256_ARM64=54328bbc2d9c8e0c9f892c544d66c57a83b84139e34909e5ee81758f1ac8fda7
+ARG BUN_VERSION=1.4.4
+ARG BUN_SHA256_AMD64=bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c
+ARG BUN_SHA256_ARM64=baa6bb36f51d6e58561e02bbea825038a9df454f673d6d776e8bbf86f8c7850e
 ARG HERDR_VERSION=0.9.5
 ARG HERDR_SHA256_AMD64=14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d
 ARG HERDR_SHA256_ARM64=17d7536f2da50859523680ef279dffcac8e4a235f4e46fe8da6c2ec44141897c
 ARG AGENT_MESSENGER_VERSION=2.40.0
-ARG OMO_VERSION=5.1.60
+ARG OMP_VERSION=18.16.0
 ARG GH_VERSION=2.100.0
 ARG GH_SHA256_AMD64=698c8d88cc19cc92bfe96bad58d10b2a5b274c52433d6dc57799c81f6139d5fc
 ARG GH_SHA256_ARM64=33ccd2ad7ce639c927e1cb209e36555b0e1fbb89f7a38239c0568040ec758612
@@ -61,8 +61,8 @@ RUN set -eu; \
 # bun global packages install their launchers into $BUN_INSTALL/bin
 ENV BUN_INSTALL=/usr/local
 
-# agent-messenger and omo, pinned npm packages via bun's global install
-RUN bun install -g agent-messenger@${AGENT_MESSENGER_VERSION} omo-ai@${OMO_VERSION}
+# agent-messenger and omp (needs bun 1.4.4 or newer), pinned npm packages via bun's global install
+RUN bun install -g agent-messenger@${AGENT_MESSENGER_VERSION} @oh-my-pi/pi-coding-agent@${OMP_VERSION}
 
 # the dori harness itself, pinned commit; the skill's scripts get their deps baked in
 RUN git clone -q https://github.com/sisyphuslabs/dori-superagent.git /opt/dori-superagent \
@@ -75,7 +75,7 @@ RUN git clone -q https://github.com/sisyphuslabs/dori-superagent.git /opt/dori-s
 # run as a normal user; all state lives in the volumes named in compose.yaml
 # the state dirs are pre-created with dori ownership so fresh named volumes inherit it
 RUN useradd -m -s /bin/bash dori \
-    && mkdir -p /home/dori/projects /home/dori/.dori /home/dori/.omo \
+    && mkdir -p /home/dori/projects /home/dori/.dori /home/dori/.omp \
       /home/dori/.config/gh /home/dori/.config/agent-messenger \
     && chown -R dori:dori /home/dori
 
