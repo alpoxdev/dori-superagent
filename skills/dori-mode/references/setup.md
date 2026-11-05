@@ -76,6 +76,8 @@ Start each as an omp named service from your own session (`bash` with a `name`, 
 
 In a shell the `|` inside a filter is a plain `|`; the table escapes it only for Markdown. When the relayed command exits, `dori relay` exits with its code after one more minute of retries, and prints `RELAY_UNDELIVERED <n>` if lines were left.
 
+With Telegram, also run `DORI_TELEGRAM_TOKEN=… dori typing telegram` beside the relays (a named service or its own pane, not under `dori relay`: it prints nothing to relay). It shows you as typing in the owner's chat while you work on an unanswered message.
+
 ## 6. First look around
 
 Once the bot is live, explore the machine: running coding-agent sessions, the tools in use, recent logs. Write what you find into memory, and adopt any running lanes with `dori adopt`.
