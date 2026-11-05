@@ -8,7 +8,7 @@ herdr is the terminal multiplexer the Dori runs in. Every lane is a herdr tab, a
 
 ```sh
 curl -fsSL https://herdr.dev/install.sh | sh
-herdr integration install pi        # or the integration for the agent you run in
+herdr integration install omp       # herdr reads each omp's state (idle, working, blocked) from this extension
 herdr --skill                       # load its skill unless it is already in your context
 ```
 
@@ -57,20 +57,24 @@ mkdir -p ~/.dori && cp ../references/config.example.json ~/.dori/config.json
 
 Then edit `~/.dori/config.json`: at least `leadPane` (your own herdr pane, from `herdr pane current`), `laneWorkspace`, `defaultCwd`, and the two hooks if you want lane threads updated automatically. `references/scripts.md` explains every field.
 
-## 5. Monitors
+## 5. Relays
 
-Arm these as persistent monitors in your own session:
+omp has no line-filtered monitor: a background job reports only when it ends. Run each watcher under `dori relay` instead. It runs the command, prints all of its output, and types each line that matches `--filter` into `leadPane` (or `--to PANE`) as its own message, once, in order. A line it could not type (no live agent in the pane, a shell in front) is retried every 5 seconds; backticks and `$(` in a line are defused so the line still arrives.
 
-| Monitor | Command | Filter |
+Start each as an omp named service from your own session (`bash` with a `name`, so it lives with the session and its log stays readable at `proc://<name>`), or in its own herdr pane:
+
+| Relay | Command | Filter (`--filter`) |
 |---|---|---|
-| inbound messages | your messenger's watch command | new owner messages |
-| done flow | `dori watch` | `^LANE_` |
-| dead panes | `dori dead-panes --loop 3` | `^(DEAD_PANE\|UNRECOGNISED_PANE)` |
-| host guard | `dori guard --loop 1` | `^HOST_GUARD` |
-| freshness | `dori freshness --loop 5` | `^(NUDGED\|POSTED\|NO-REPORT\|PENDING-REPORT\|STALE-REPORT\|STALLED\|JOURNAL-ERROR\|WORKING-WHILE-PAUSED)` |
-| Slack inbound (Slack only) | `dori inbound slack --loop 1` | `^INBOUND` |
-| Telegram inbound (Telegram only) | `DORI_TELEGRAM_TOKEN=… DORI_TELEGRAM_OWNER_ID=… dori inbound telegram --loop 1` | `^INBOUND` |
-| presence (optional) | `dori presence slack` or `dori presence discord` | `^PRESENCE_READY` |
+| inbound messages | `dori relay --filter '<new owner message>' -- <your messenger's watch command>` | new owner messages |
+| done flow | `dori relay --filter '^LANE_' -- dori watch` | `^LANE_` |
+| dead panes | `dori relay --filter '^(DEAD_PANE\|UNRECOGNISED_PANE)' -- dori dead-panes --loop 3` | `^(DEAD_PANE\|UNRECOGNISED_PANE)` |
+| host guard | `dori relay --filter '^HOST_GUARD' -- dori guard --loop 1` | `^HOST_GUARD` |
+| freshness | `dori relay --filter '^(NUDGED\|POSTED\|NO-REPORT\|PENDING-REPORT\|STALE-REPORT\|STALLED\|JOURNAL-ERROR\|WORKING-WHILE-PAUSED)' -- dori freshness --loop 5` | `^(NUDGED\|POSTED\|…\|WORKING-WHILE-PAUSED)` |
+| Slack inbound (Slack only) | `dori relay --filter '^INBOUND' -- dori inbound slack --loop 1` | `^INBOUND` |
+| Telegram inbound (Telegram only) | `DORI_TELEGRAM_TOKEN=… DORI_TELEGRAM_OWNER_ID=… dori relay --filter '^INBOUND' -- dori inbound telegram --loop 1` | `^INBOUND` |
+| presence (optional) | `dori relay --filter '^PRESENCE_READY' -- dori presence slack` (or `discord`) | `^PRESENCE_READY` |
+
+In a shell the `|` inside a filter is a plain `|`; the table escapes it only for Markdown. When the relayed command exits, `dori relay` exits with its code after one more minute of retries, and prints `RELAY_UNDELIVERED <n>` if lines were left.
 
 ## 6. First look around
 

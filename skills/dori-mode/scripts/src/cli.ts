@@ -26,6 +26,7 @@ import { slackPresence } from "./messenger/slack-presence.ts";
 import { Telegram } from "./messenger/telegram.ts";
 import { Discord, discordPresence } from "./messenger/discord.ts";
 import { realTimers } from "./messenger/typing.ts";
+import { lines, Relay } from "./relay.ts";
 import { transcribe, TranscriptionError } from "./messenger/voice.ts";
 import { formatVerifyPr, verifyPr } from "./verify-pr.ts";
 import { CheckpointError, Checkpoints } from "./checkpoints.ts";
@@ -59,6 +60,8 @@ const USAGE = `dori <command> [options]
   pause  <key> [--note TEXT]           the owner said wait: goal paused (read back), running turn stopped, no nudges; exit 3 if unconfirmed
   resume <key> [--note TEXT]           undo pause: goal resumed (read back), lane back to its earlier status
   watch                                long-running: emits LANE_* lines every 30 s
+  relay --filter REGEX [--to PANE] -- <command ...>
+                                       run a long-running command and type each matching line into PANE (default leadPane)
   freshness [--loop MIN]               nudge silent lanes, post their last report via hooks.threadReply
   dead-panes [--loop MIN]              print DEAD_PANE <id> for stopped agent panes
   guard [--loop MIN]                   host load, memory, disk and pane-count alerts
@@ -93,7 +96,7 @@ const flags = parseArgs({
     "wall-minutes": { type: "string" }, "token-limit": { type: "string" }, "cost-limit": { type: "string" },
     "activity-path": { type: "string", multiple: true },
     rule: { type: "string" }, outcome: { type: "string" }, lesson: { type: "string" }, "dry-run": { type: "boolean" },
-    source: { type: "string" }, open: { type: "boolean" },
+    source: { type: "string" }, open: { type: "boolean" }, filter: { type: "string" },
   },
 });
 const opt = (name: string): string | undefined => {
@@ -336,6 +339,33 @@ try {
         releaseSlot(slot);
       }
       break;
+    }
+    case "relay": {
+      const sep = rest.indexOf("--");
+      const cmd = sep >= 0 ? rest.slice(sep + 1) : [];
+      const filterText = need("filter");
+      if (!cmd.length) die("usage: dori relay --filter REGEX [--to PANE] -- <command ...>");
+      let filter: RegExp;
+      try {
+        filter = new RegExp(filterText);
+      } catch (e) {
+        filter = die(`--filter is not a valid regular expression: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      const pane = opt("to") || config.leadPane || die("relay needs --to PANE or leadPane in the config");
+      const relay = new Relay({ run, clock: realClock, pane, filter });
+      const child = Bun.spawn(cmd, { stdout: "pipe", stderr: "inherit", stdin: "ignore" });
+      // A line that could not be typed (the lead's pane was busy with a shell, or herdr was down) is retried every 5 s.
+      const retry = setInterval(() => void relay.flush(), 5_000);
+      for await (const line of lines(child.stdout)) {
+        console.log(line);
+        if (relay.offer(line)) void relay.flush();
+      }
+      const code = await child.exited;
+      clearInterval(retry);
+      // The command ended: one more minute to hand over what it printed last, then say what was never delivered.
+      for (let tries = 0; (await relay.flush()) > 0 && tries < 12; tries++) await Bun.sleep(5_000);
+      if (relay.waiting > 0) console.error(`RELAY_UNDELIVERED ${relay.waiting} line(s) to ${pane}`);
+      process.exit(relay.waiting > 0 ? 1 : code);
     }
     case "can-launch": {
       const v = canLaunch(await sampleHost(run), config.guard);

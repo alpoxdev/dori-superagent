@@ -22,7 +22,7 @@ test("a missing config file falls back to defaults and DORI_STATE_DIR wins over 
   process.env.DORI_STATE_DIR = state.dir;
   const c = await loadConfig("/nonexistent/config.json", "/home/ana");
   expect(c.stateDir).toBe(state.dir);
-  expect(c.agentCommand).toEqual(["omo", "--model", "{model}", "{prompt}"]);
+  expect(c.agentCommand).toEqual(["omp", "--model", "{model}", "--goal", "{prompt}"]);
 });
 
 test("repoIdentities keys are matched as lowercase owner/repo, whatever case the file uses", async () => {
@@ -48,9 +48,9 @@ test("malformed repoIdentities entries are dropped, so launch still writes its f
 
 test("a goalMarker that is not a string falls back to the default, so a typo never turns the goal check off", async () => {
   const path = join(state.dir, "config.json");
-  for (const value of [null, false, 0, {}, ["Pursuing goal"]]) {
+  for (const value of [null, false, 0, {}, ["🎯 Goal"]]) {
     await Bun.write(path, JSON.stringify({ goalMarker: value }));
-    expect((await loadConfig(path, "/home/ana")).goalMarker).toBe("Pursuing goal");
+    expect((await loadConfig(path, "/home/ana")).goalMarker).toBe("🎯 Goal");
   }
   // An empty string is the documented way to turn the check off, so it is kept.
   await Bun.write(path, JSON.stringify({ goalMarker: "" }));

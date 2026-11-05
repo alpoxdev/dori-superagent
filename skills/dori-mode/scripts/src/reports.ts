@@ -124,11 +124,13 @@ export class Reports {
       for (const match of visible.matchAll(pattern)) at = match.index;
       return at;
     };
-    const workingAt = lastAt(/^\s*[^\w\n]*(?:Working|Running)\b/gim);
+    // A turn shows a Working/Running line (omp: the `⎋` interrupt row, and a spinner in place of `π` on the status line).
+    const workingAt = lastAt(/^\s*(?:[^\w\n]*(?:Working|Running)\b|⎋\s|[\u2801-\u28FF]\s+\S+.* >)/gim);
     const working = workingAt >= 0;
     // A failure counts only when no Working line follows it: an old error left on screen above a recovered lane is history.
     const failed = lastAt(/compaction (?:failed|failure|error)|failed to compact|error (?:during|in) compaction|auto-?compaction failed/gi) > workingAt;
-    const idle = /^\s*[❯>]\s*$/m.test(visible);
+    // An empty input: omp's `╰─` (a right-aligned hint may share its row), or a bare `❯`/`>` prompt.
+    const idle = /^\s*[❯>]\s*$|^╰─(?:\s{2,}\S.*)?$/m.test(visible);
     const stale = now - Date.parse(progress.lastReport?.at ?? progress.lastEvent.at) >= staleAfterMs;
     const state = failed || (idle && !working && stale) ? "stalled" : working && resumeOnWorking ? "running" : progress.state;
     if (state === progress.state) return progress;

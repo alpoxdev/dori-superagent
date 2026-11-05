@@ -25,7 +25,7 @@ export type LaunchInput = {
 export class LaunchError extends Error {}
 
 const STARTUP_FAILURE = /Cannot find module|All fallback models failed|No API key|model_not_available|usage limit|rate limit|quota|Session crashed|unknown provider/i;
-// `goalMarker` is the agent's status text while a goal is active (omo: `Pursuing goal`). A lane that starts but never
+// `goalMarker` is the agent's status text while a goal is active (omp: `🎯 Goal`, `⏸ Goal` once paused). A lane that starts but never
 // sets its goal stops after its first turn, so a ready status alone is not a good start. The status line shares its row
 // with other extensions' status text, so the marker is matched in the footer (the last lines), never in agent output
 // that quotes it. An empty marker turns the check off.
@@ -134,7 +134,8 @@ const startLane = async (deps: FlowDeps, input: LaunchInput, draft: Lane, preamb
   // The launch is an activity record, not a report: it starts the journal (so the screen is watched for a stall) but is
   // never posted to the thread as if the agent had reported.
   new Reports(deps.config.stateDir).append({ type: "activity", key: lane.key, at: iso(deps.clock), state: "running", text: `lane launched in ${pane}` });
-  const prompt = `${deps.config.launchKeywords}. Read and execute the lane brief at ${input.brief} in full. You are the ${input.key} lane; report as the brief's footer says.`;
+  const keywords = deps.config.launchKeywords.trim();
+  const prompt = `${keywords ? `${keywords}. ` : ""}Read and execute the lane brief at ${input.brief} in full. You are the ${input.key} lane; report as the brief's footer says.`;
   await deps.run(["herdr", "pane", "run", pane, fill(deps.config.agentCommand, { model, prompt }).map(quoteForPane).join(" ")]);
   const started = deps.clock.now();
   await deps.clock.sleep(20_000);

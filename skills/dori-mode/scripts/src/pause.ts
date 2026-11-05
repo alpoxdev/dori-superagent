@@ -10,11 +10,11 @@ import { type Lane, type LaneStatus, statusOf, withStatus } from "./registry.ts"
 export type PauseResult = { readonly lane: Lane; readonly lines: readonly string[]; readonly code: 0 | 2 | 3 };
 
 const PAUSABLE: ReadonlySet<LaneStatus> = new Set(["working", "not-done"]);
-// What the goal command prints (senpi goal/command-registration.ts): its new status, or that there is no goal,
-// in which case nothing can auto-continue either.
+// What omp's /goal command prints: its new state, or a warning that there is nothing to pause (no goal, or it is
+// already paused) or to resume (no goal, or it is already running); either way nothing is left for the command to do.
 // Whole lines only, so a lane's own output that merely mentions them does not count.
-const PAUSED_SHOWN = /^\s*(?:Goal paused|cannot update goal: no goal exists)\s*$/gm;
-const RESUMED_SHOWN = /^\s*(?:Goal active|cannot update goal: no goal exists)\s*$/gm;
+const PAUSED_SHOWN = /^\s*(?:Goal mode paused\.|Warning: No active goal to pause\.)\s*$/gm;
+const RESUMED_SHOWN = /^\s*(?:Goal mode resumed\.|Warning: No paused goal to resume\.)\s*$/gm;
 const READ_BACK_TRIES = 8;
 
 const count = (screen: string, shown: RegExp): number => screen.match(shown)?.length ?? 0;

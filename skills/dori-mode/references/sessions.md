@@ -14,7 +14,7 @@ dori launch fix-login --title "Fix the login redirect loop" \
 
 Write the brief like a careful prompt:
 
-- open with the keywords you would type yourself (for example `ulw set goal and work`);
+- open with what the lane is for in one line: `dori launch` starts omp with `--goal`, so the agent keeps working toward the brief until it marks the goal done;
 - where the code is and what has been learned so far;
 - the ideal end state, from the point of view of whoever uses the result;
 - what not to touch;
@@ -57,13 +57,13 @@ One JSON file per lane under `<stateDir>/lanes/`, written atomically (temp file 
 
 How the session id is found for a pane, in order:
 
-1. the agent process's `--session <id>` argument;
+1. the agent process's `--session <id>` argument (omo; omp has no such flag, so steps 2 and 3 find its sessions);
 2. `PI_SESSION_ID` in the environment of one of its child processes;
 3. the session file whose timestamp falls within three minutes after the agent process started.
 
 The id from step 1 is the session the agent was launched with. If someone switches sessions inside the agent, only steps 2 and 3 notice.
 
-When the owner writes in a closed lane's thread, reopen its recorded session in a new tab, set its monitors again, and keep replying there.
+When the owner writes in a closed lane's thread, reopen its recorded session in a new tab (`omp --resume <id>`), arm its relays again, and keep replying there.
 
 ## Messaging a session
 
@@ -80,4 +80,4 @@ Exit code 0 and echoed input are not proof the agent got the message. A reply fr
 
 - Sessions that turn blocked or ask a question: answer them or bring them to the owner.
 - Sessions that report a bug: reproduce it before it counts, then give it its own thread.
-- `dori dead-panes` reports agent panes that stopped; restart the session in place (`<agent> --session <id>`) unless its work is finished.
+- `dori dead-panes` reports agent panes that stopped; restart the session in place (`omp --resume <id>`) unless its work is finished.

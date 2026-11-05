@@ -235,4 +235,11 @@ describe("supervision", () => {
     expect(workingTimer("Working ...")).toBeNull();
     expect(workingTimer("log mentions Working 20m")).toBeNull();
   });
+
+  test("reads omp's turn time from its status line, never the sizes after the first `>`", () => {
+    const status = (head: string) => `  ⎋ Working…\n ${head} > ◔ claude-opus-5-5 > 🎯 Goal 92K > $0.06 ▶──10%──┃──1M─\n╰─`;
+    expect(workingTimer(status("⠴ 7s"))).toEqual({ kind: "working", seconds: 7, step: 1 });
+    expect(workingTimer(status("⠹ 21m 5s"))).toEqual({ kind: "working", seconds: 1265, step: 1 });
+    expect(workingTimer(status("π"))).toBeNull();
+  });
 });

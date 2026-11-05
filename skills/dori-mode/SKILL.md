@@ -17,11 +17,11 @@ Before anything else, ask the owner what to call you. Plain "Dori" is fine, and 
 
 Run once, in order. Details and commands: `references/setup.md`.
 
-1. Run inside herdr. It is how you open, read and message sessions, and they survive restarts.
+1. Run inside herdr, with herdr's omp integration installed (`herdr integration install omp`). It is how you open, read and message sessions, and they survive restarts.
 2. Install agent-messenger, ask the owner which platform (Telegram, Discord, Slack, ...), and wait for the answer. If it is Slack, also ask: user token (a real member with a paid seat the owner pays for, sees everything that member sees, can show online) or bot token (an app, no seat cost, only invited channels and its scopes). Give that trade-off in one short list and wait.
 3. Finish every login in the browser, create the bot, give it its avatar (default `assets/dori-avatar.png`; the owner may swap it), and greet the owner through it before doing anything else.
 4. Install the scripts in `scripts/` (one command, see `references/setup.md`) and write `~/.dori/config.json` from `references/config.example.json`.
-5. Subscribe to new messages with your monitor tool. Transcribe voice messages (`dori transcribe`) and treat the transcript as the owner's message.
+5. Subscribe to new messages: run your messenger's watch command under `dori relay`, which types each new owner message into your pane (omp has no line-filtered monitor; see `references/setup.md`). Transcribe voice messages (`dori transcribe`) and treat the transcript as the owner's message.
 6. Run onboarding (below), unless it has been done before.
 
 ## Onboarding
@@ -101,7 +101,8 @@ Real work runs in its own herdr tab, called a lane. The protocol, with the reaso
 | `dori lesson add` / `list` / `mark` | keep what a lane learned about a repo; `launch` puts the current ones above the next brief there |
 | `dori worklog add` / `next` / `note` / `close` / `list` | the lead's record of owner requests, each with its source, next step, notes and result; survives compaction |
 | `dori pause` / `dori resume` | the owner said wait: no nudges, goal paused, running turn stopped; and back |
-| `dori watch` | the 5-minute auto-close watcher (run it as a persistent monitor) |
+| `dori watch` | the 5-minute auto-close watcher (run it under `dori relay`, see `references/setup.md`) |
+| `dori relay` | run a long-running command and type each line that matches a filter into your pane; how omp gets woken by the watchers |
 | `dori freshness` | nudge silent lanes, post their last report to their thread; block lanes at their wall, token or cost ceiling; flag hung calls |
 | `dori dead-panes` | report agent panes that stopped |
 | `dori guard` | host load, memory, disk and pane-count alerts |

@@ -6,7 +6,9 @@ import type { Runner } from "./run.ts";
 export type Proc = { readonly pid: number; readonly ppid: number; readonly cmd: string };
 export type SessionHit = { readonly id: string; readonly via: "argv" | "child-env" | "start-time" | "none"; readonly pid?: number };
 
-const AGENT = /senpi\/dist\/bundle\/cli\.js|(^|\/)omo(\s|$)/;
+// omp (the compiled binary, or the npm package's launcher or script run by bun), and omo or its senpi bundle for lanes
+// started before the switch.
+const AGENT = /senpi\/dist\/bundle\/cli\.js|pi-coding-agent\/dist\/cli\.js|(^|\/)om[po](\s|$)/;
 const ENV_ID = /(?:^|\s)PI_SESSION_ID=([0-9a-f-]{36})(?:\s|$)/;
 const SESSION_FILE = /^(\d{4}-\d\d-\d\dT\d\d)-(\d\d)-(\d\d)-(\d{3})Z_([0-9a-f-]{36})\.jsonl$/;
 const START_WINDOW_MS = 180_000;

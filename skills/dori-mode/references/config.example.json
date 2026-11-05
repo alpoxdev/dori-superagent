@@ -8,15 +8,16 @@
   "leadPane": "<your herdr pane id, from: herdr pane current>",
   "defaultCwd": "~/code/my-project",
   "agentCommand": [
-    "omo",
+    "omp",
     "--model",
     "{model}",
+    "--goal",
     "{prompt}"
   ],
   "defaultModel": "anthropic/claude-opus-5-5",
-  "launchKeywords": "ulw set goal and work",
-  "goalMarker": "Pursuing goal",
-  "sessionsDir": "~/.omo/agent/sessions",
+  "launchKeywords": "",
+  "goalMarker": "🎯 Goal",
+  "sessionsDir": "~/.omp/agent/sessions",
   "nudgeAfterMin": 15,
   "postAfterMin": 20,
   "closeAfterMin": 5,
@@ -38,6 +39,7 @@
   "heavyMaxLoad": 80,
   "deadPanePatterns": [
     "has stopped",
+    "closing session",
     "no suitable jobs"
   ],
   "guard": {

@@ -44,12 +44,16 @@ type Observation = {
   readonly alerts: readonly string[];
 };
 
-// Match only an explicit duration on a visible Working/Running line. step is the smallest unit shown, in seconds:
+// Match only an explicit duration on a visible Working/Running line, or on omp's status line during a turn, where a
+// spinner and the turn's elapsed time stand before the first ` >` (`⠴ 1m 5s > model > ...`); the rest of that line
+// carries sizes such as `1M` that must not read as minutes. step is the smallest unit shown, in seconds:
 // "25m" is rounded to the minute, so two readings can place the same call's start up to a minute apart.
 export const workingTimer = (screen: string): { kind: string; seconds: number; step: number } | null => {
-  for (const line of Bun.stripANSI(screen).split("\n")) {
-    const kind = /^\s*[^\w\n]*(Working|Running)\b/i.exec(line)?.[1]?.toLowerCase();
+  for (const raw of Bun.stripANSI(screen).split("\n")) {
+    const spinner = /^\s*[\u2801-\u28FF]\s+(.*?) >/.exec(raw);
+    const kind = spinner ? "working" : /^\s*[^\w\n]*(Working|Running)\b/i.exec(raw)?.[1]?.toLowerCase();
     if (!kind) continue;
+    const line = spinner ? spinner[1]! : raw;
     const clock = /\b(\d+):(\d{2})(?::(\d{2}))?\b/.exec(line);
     if (clock) {
       const seconds = clock[3] === undefined ? Number(clock[1]) * 60 + Number(clock[2]) :

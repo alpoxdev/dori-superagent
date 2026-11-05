@@ -1,0 +1,70 @@
+import { sendVerified } from "./panes.ts";
+import type { Clock, Runner } from "./run.ts";
+
+/**
+ * Wakes a pane's agent with the lines a long-running command prints. omp has no line-filtered monitor: a background
+ * job reports only when it ends, so `dori watch`, the inbound loops and the sweeps would never reach the lead. The
+ * relay runs the command, echoes all of its output, and types each line that matches the filter into the pane as a
+ * message of its own, in order.
+ */
+export type RelayDeps = { readonly run: Runner; readonly clock: Clock; readonly pane: string; readonly filter: RegExp };
+
+// sendVerified refuses a backtick or `$(` (a pane that turns out to be a shell would run them). A relayed line is data,
+// so those are defused instead of dropped: an owner message that quotes code still arrives.
+export const relayText = (line: string): string => line.replace(/`/g, "'").replace(/\$\(/g, "$ (");
+
+export class Relay {
+  private readonly pending: string[] = [];
+  private flushing: Promise<number> | null = null;
+
+  constructor(readonly deps: RelayDeps) {}
+
+  /** Queues the line when it matches the filter. Lines that do not match are only echoed by the caller. */
+  offer(line: string): boolean {
+    if (!this.deps.filter.test(line)) return false;
+    this.pending.push(relayText(line));
+    return true;
+  }
+
+  get waiting(): number {
+    return this.pending.length;
+  }
+
+  /**
+   * Sends queued lines in order until one fails; returns how many are left. A line is typed once: "unconfirmed" (the
+   * agent was busy, or did not visibly pick it up) counts as sent, because typing it again could deliver it twice. Only
+   * "failed" (no live agent, a shell in front, herdr refused the text) keeps it for the next flush. Concurrent calls
+   * share one pass.
+   */
+  flush(): Promise<number> {
+    this.flushing ??= (async () => {
+      try {
+        while (this.pending.length > 0) {
+          if ((await sendVerified(this.deps.run, this.deps.clock, this.deps.pane, this.pending[0]!)) === "failed") break;
+          this.pending.shift();
+        }
+        return this.pending.length;
+      } finally {
+        this.flushing = null;
+      }
+    })();
+    return this.flushing;
+  }
+}
+
+/** Splits a byte stream into lines; a final line without a newline is still yielded. */
+export async function* lines(stream: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const decoder = new TextDecoder();
+  let buffered = "";
+  for await (const chunk of stream) {
+    buffered += decoder.decode(chunk, { stream: true });
+    let at = buffered.indexOf("\n");
+    while (at >= 0) {
+      yield buffered.slice(0, at).replace(/\r$/, "");
+      buffered = buffered.slice(at + 1);
+      at = buffered.indexOf("\n");
+    }
+  }
+  buffered += decoder.decode();
+  if (buffered) yield buffered.replace(/\r$/, "");
+}
