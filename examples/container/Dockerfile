@@ -21,7 +21,7 @@ ARG OMP_VERSION=18.16.0
 ARG GH_VERSION=2.100.0
 ARG GH_SHA256_AMD64=698c8d88cc19cc92bfe96bad58d10b2a5b274c52433d6dc57799c81f6139d5fc
 ARG GH_SHA256_ARM64=33ccd2ad7ce639c927e1cb209e36555b0e1fbb89f7a38239c0568040ec758612
-ARG DORI_REF=06c4600b77f6e81ed9bd5b706d736bec07cf27b1
+ARG DORI_REF=894e54c3158a65c7c026475b0bac3b0bfc13375f
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -65,7 +65,7 @@ ENV BUN_INSTALL=/usr/local
 RUN bun install -g agent-messenger@${AGENT_MESSENGER_VERSION} @oh-my-pi/pi-coding-agent@${OMP_VERSION}
 
 # the dori harness itself, pinned commit; the skill's scripts get their deps baked in
-RUN git clone -q https://github.com/sisyphuslabs/dori-superagent.git /opt/dori-superagent \
+RUN git clone -q https://github.com/alpoxdev/dori-superagent.git /opt/dori-superagent \
     && git -C /opt/dori-superagent checkout -q "${DORI_REF}" \
     && rm -rf /opt/dori-superagent/.git \
     && bun install --cwd /opt/dori-superagent/skills/dori-mode/scripts \
