@@ -199,7 +199,7 @@ curl -fsSL https://raw.githubusercontent.com/alpoxdev/dori-superagent/main/insta
 
 エンドツーエンドテスト 2 個（`test/e2e.test.ts`）のうち 1 個目は、隔離した名前付きセッションで本物の herdr サーバーを起動し、ワークスペースを作り、lead ペインを登録して、omp の代わりに `test/fixtures/fake-agent.sh` をエージェントにした lane を開始します。このスクリプトは brief を読んで `dori report` と `dori ready` を呼び、テストは `[START]`、`[REPORT]`、`[READY]` が lead ペインに届くことと、`dori done` が lane を閉じることを確認します。2 個目はバックログに項目を足して `dori loop --once` を実行し、ループが始めた lane が READY まで行くこと、`[LOOP ...]` が lead ペインに届くこと、`dori loop stop` の後の実行が何もしないことを確認します。どちらも PATH に `herdr` がなければスキップされます。`bun run typecheck` は `tsc --noEmit` を実行します。
 
-Dori モードには、偽の herdr、hc、git、gh に対する独自のテストが 317 個あります。Dori モードは既定で herdr-core（`hc`）上で動きます。herdr マルチプレクサを使うには設定に `"terminal": "herdr"` を入れます。
+Dori モードには、偽の herdr、hc、git、gh に対する独自のテストが 319 個あります。Dori モードは既定で herdr-core（`hc`）上で動きます。herdr マルチプレクサを使うには設定に `"terminal": "herdr"` を入れます。
 
 ```sh
 cd skills/dori-mode/scripts && bun install && bun test

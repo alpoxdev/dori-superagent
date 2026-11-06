@@ -48,9 +48,10 @@ export type DoriConfig = {
   readonly supervision: SupervisionOptions;
   /**
    * kakaotalk-bridge: its data folder (credentials and archives), the profile it was logged in with, and the Unix socket
-   * its resident receiver serves (empty: `<dataDir>/<profile>.sock`).
+   * its resident receiver serves (empty: `<dataDir>/<profile>.sock`), and the open chats the Dori may answer, by chat id
+   * (empty: every open chat; any other room stays read-only).
    */
-  readonly kakaotalk: { readonly dataDir: string; readonly profile: string; readonly socket: string };
+  readonly kakaotalk: { readonly dataDir: string; readonly profile: string; readonly socket: string; readonly openChats: readonly string[] };
 };
 
 export const defaultConfig = (home = homedir()): DoriConfig => ({
@@ -78,7 +79,7 @@ export const defaultConfig = (home = homedir()): DoriConfig => ({
   hooks: {},
   repoIdentities: {},
   supervision: { hungAfterMinutes: 20, staleAfterMinutes: 20, defaults: { wallMinutes: null, tokens: null, costUsd: null } },
-  kakaotalk: { dataDir: join(home, ".local", "share", "kakaotalk-bridge"), profile: "dori", socket: "" },
+  kakaotalk: { dataDir: join(home, ".local", "share", "kakaotalk-bridge"), profile: "dori", socket: "", openChats: [] },
 });
 
 export const configPath = (): string => process.env.DORI_CONFIG ?? join(homedir(), ".dori", "config.json");
@@ -166,6 +167,10 @@ export const loadConfig = async (path = configPath(), home = homedir()): Promise
       dataDir: expandHome(merged.kakaotalk.dataDir, home),
       profile: merged.kakaotalk.profile,
       socket: expandHome(merged.kakaotalk.socket || join(merged.kakaotalk.dataDir, `${merged.kakaotalk.profile}.sock`), home),
+      // Ids past 2^53 lose digits as JSON numbers, so only strings are accepted.
+      openChats: Array.isArray(merged.kakaotalk.openChats) && merged.kakaotalk.openChats.every((id) => typeof id === "string" && /^\d+$/.test(id))
+        ? merged.kakaotalk.openChats
+        : (() => { throw new ConfigError("invalid kakaotalk.openChats: expected a list of chat ids as strings, e.g. [\"18498738616482001\"]"); })(),
     },
     terminal: terminalKind(process.env.DORI_TERMINAL ?? merged.terminal),
   };

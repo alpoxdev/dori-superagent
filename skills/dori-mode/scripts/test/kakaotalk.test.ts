@@ -116,3 +116,18 @@ test("sending reaches the bridge only for an open chat; an ordinary or unknown r
     allow_read_state_change: true,
   }]]);
 });
+
+test("with an open-chat list, an open chat not on it is read-only: it wakes no one and sending there is refused", async () => {
+  const a = archiveAt();
+  a.addRoom(LATE, "777", "다른 오픈채팅");
+  const archive = new KakaoArchive(a.path, [OPEN]);
+  expect(archive.rooms().filter((r) => r.open).map((r) => r.chatId)).toEqual([OPEN]);
+  const store = fileKakaoStore(join(state.dir, "kakaotalk-seq"));
+  store.save(0);
+  a.receive(LATE, "30", "99", "not on the list");
+  a.receive(OPEN, "31", "99", "on the list");
+  expect((await pollKakaoInbound(archive, store, async () => {}, () => {})).map((i) => i.text)).toEqual(["on the list"]);
+  let called = false;
+  await expect(sendKakao(archive, async () => { called = true; return {}; }, LATE, { text: "hi" }, "k")).rejects.toBeInstanceOf(KakaoReadOnlyRoomError);
+  expect(called).toBe(false);
+});

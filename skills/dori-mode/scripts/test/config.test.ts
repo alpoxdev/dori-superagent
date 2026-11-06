@@ -61,3 +61,11 @@ test("hook templates fill each argument separately, so text with spaces or quote
   const argv = fill(["notify", "--thread", "{thread}", "--text", "{text}"], { thread: "chat:1/2", text: `it's "done"; rm -rf /` });
   expect(argv).toEqual(["notify", "--thread", "chat:1/2", "--text", `it's "done"; rm -rf /`]);
 });
+
+test("kakaotalk.openChats accepts chat ids only as strings, so ids past 2^53 keep every digit", async () => {
+  const path = join(state.dir, "config.json");
+  await Bun.write(path, JSON.stringify({ kakaotalk: { openChats: ["18498738616482001"] } }));
+  expect((await loadConfig(path, "/home/ana")).kakaotalk.openChats).toEqual(["18498738616482001"]);
+  await Bun.write(path, '{"kakaotalk":{"openChats":[18498738616482001]}}');
+  await expect(loadConfig(path, "/home/ana")).rejects.toThrow("invalid kakaotalk.openChats");
+});

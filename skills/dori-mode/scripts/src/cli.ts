@@ -391,7 +391,7 @@ try {
       if (platform === "kakaotalk") {
         const image = opt("image");
         const content = image ? { image } : { text: need("text") };
-        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile));
+        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats);
         try {
           console.log(`SENT ${await sendKakao(archive, bridgeSocket(config.kakaotalk.socket), to, content, `dori-${to}-${Date.now()}-${process.pid}`)}`);
         } catch (e) {
@@ -464,7 +464,7 @@ try {
       }
     }
     case "kakaotalk": {
-      const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile));
+      const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats);
       if (key === "rooms") {
         for (const r of archive.rooms()) console.log(`${r.open ? "open     " : "read-only"} ${r.chatId} ${r.linkId} ${JSON.stringify(r.name)}`);
       } else if (key === "read") {
@@ -480,7 +480,7 @@ try {
     }
     case "inbound": {
       if (key === "kakaotalk") {
-        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile));
+        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats);
         const call = bridgeSocket(config.kakaotalk.socket);
         const store = fileKakaoStore(`${config.stateDir}/kakaotalk-seq`);
         // A room the archive has not seen yet: refresh the room list through the resident receiver, then look again.

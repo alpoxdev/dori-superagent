@@ -40,7 +40,11 @@ export class KakaoArchive {
   readonly selfId: string;
   private readonly db: Database;
 
-  constructor(readonly path: string) {
+  /**
+   * `openChats` lists the open chats the Dori may answer, by chat id. Empty: every open chat. An open chat not on a
+   * non-empty list is treated like an ordinary room: read-only, and it wakes no one.
+   */
+  constructor(readonly path: string, readonly openChats: readonly string[] = []) {
     // The bridge keeps the archive in WAL mode and removes its -shm file between writes; a readonly connection cannot
     // recreate it and fails to open. Open read-write so SQLite can manage that file, and refuse every write ourselves.
     this.db = new Database(path, { readwrite: true, create: false });
@@ -58,7 +62,7 @@ export class KakaoArchive {
         "SELECT CAST(chat_id AS TEXT) AS chat_id, CAST(link_id AS TEXT) AS link_id, metadata FROM rooms WHERE chat_id = CAST(?1 AS INTEGER)",
       )
       .get(chatId);
-    return row ? toRoom(row) : undefined;
+    return row ? this.toRoom(row) : undefined;
   }
 
   rooms(): KakaoRoom[] {
@@ -67,7 +71,12 @@ export class KakaoArchive {
         "SELECT CAST(chat_id AS TEXT) AS chat_id, CAST(link_id AS TEXT) AS link_id, metadata FROM rooms ORDER BY link_id = 0, chat_id",
       )
       .all()
-      .map(toRoom);
+      .map((row) => this.toRoom(row));
+  }
+
+  private toRoom(row: { chat_id: string; link_id: string; metadata: string }): KakaoRoom {
+    const room = toRoom(row);
+    return room.open && this.openChats.length > 0 && !this.openChats.includes(room.chatId) ? { ...room, open: false } : room;
   }
 
   lastSeq(): number {
