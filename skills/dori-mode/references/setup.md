@@ -73,10 +73,10 @@ Start each in its own terminal that outlives your session (`hc run --bg --no-par
 | freshness | `dori relay --filter '^(NUDGED\|POSTED\|NO-REPORT\|PENDING-REPORT\|STALE-REPORT\|STALLED\|JOURNAL-ERROR\|WORKING-WHILE-PAUSED)' -- dori freshness --loop 5` | `^(NUDGED\|POSTED\|…\|WORKING-WHILE-PAUSED)` |
 | Slack inbound (Slack only) | `dori relay --filter '^INBOUND' -- dori inbound slack --loop 1` | `^INBOUND` |
 | Telegram inbound (Telegram only) | `DORI_TELEGRAM_TOKEN=… DORI_TELEGRAM_OWNER_ID=… dori relay --filter '^INBOUND' -- dori inbound telegram --loop 1` | `^INBOUND` |
-| KakaoTalk inbound (KakaoTalk only) | `dori relay --filter '^INBOUND kakao-open' -- dori inbound kakaotalk --loop 1` | `^INBOUND kakao-open` |
+| KakaoTalk inbound (KakaoTalk only) | `dori relay --filter '^INBOUND kakao-open' --settle 6 -- dori inbound kakaotalk --loop 1` | `^INBOUND kakao-open` |
 | presence (optional) | `dori relay --filter '^PRESENCE_READY' -- dori presence slack` (or `discord`) | `^PRESENCE_READY` |
 
-In a shell the `|` inside a filter is a plain `|`; the table escapes it only for Markdown. When the relayed command exits, `dori relay` exits with its code after one more minute of retries, and prints `RELAY_UNDELIVERED <n>` if lines were left.
+Chat people send one thought as several short messages a few seconds apart; `--settle 6` holds such a burst until six seconds pass with no new message, so you get it as one message and answer it once, not line by line. In a shell the `|` inside a filter is a plain `|`; the table escapes it only for Markdown. When the relayed command exits, `dori relay` exits with its code after one more minute of retries, and prints `RELAY_UNDELIVERED <n>` if lines were left.
 
 With Telegram, also run `DORI_TELEGRAM_TOKEN=… dori typing telegram` beside the relays (a named service or its own pane, not under `dori relay`: it prints nothing to relay). It shows you as typing in the owner's chat while you work on an unanswered message.
 

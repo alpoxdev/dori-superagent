@@ -102,7 +102,7 @@ Real work runs in its own terminal (an `hc` terminal labelled `workspace=<laneWo
 | `dori worklog add` / `next` / `note` / `close` / `list` | the lead's record of owner requests, each with its source, next step, notes and result; survives compaction |
 | `dori pause` / `dori resume` | the owner said wait: no nudges, goal paused, running turn stopped; and back |
 | `dori watch` | the 5-minute auto-close watcher (run it under `dori relay`, see `references/setup.md`) |
-| `dori relay` | run a long-running command and type each line that matches a filter into your pane; how omp gets woken by the watchers |
+| `dori relay` | run a long-running command and type the lines that match a filter into your pane (`--settle` holds a chat burst into one message); how omp gets woken by the watchers |
 | `dori typing telegram` | Telegram shows you typing while an owner message is unanswered and your pane is working; run it next to the relays |
 | `dori freshness` | nudge silent lanes, post their last report to their thread; block lanes at their wall, token or cost ceiling; flag hung calls |
 | `dori dead-panes` | report agent panes that stopped |

@@ -5,24 +5,25 @@ import { fakeClock, fakeRunner, newWorld, sent } from "./fakes.ts";
 
 const T0 = Date.parse("2026-01-01T12:00:00Z");
 
-const setup = (status: string | undefined) => {
+const setup = (status: string | undefined, settleMs = 0) => {
   const world = newWorld();
   world.panes = [{ pane_id: "lead:p1", workspace_id: "lead", agent: "omp", ...(status ? { agent_status: status } : {}) }];
-  const relay = new Relay({ run: fakeRunner(world), clock: fakeClock(T0), pane: "lead:p1", filter: /^LANE_/ });
-  return { world, relay };
+  const clock = fakeClock(T0);
+  const relay = new Relay({ run: fakeRunner(world), clock, pane: "lead:p1", filter: /^LANE_/, settleMs });
+  return { world, relay, clock };
 };
 
-test("a working lead is never typed into: matching lines wait, then go out once each, in order, when it is idle", async () => {
+test("a working lead is never typed into: matching lines wait, then go out once, together and in order, when it is idle", async () => {
   const { world, relay } = setup("working");
   for (const line of ["LANE_WATCH_READY", "checking 3 lanes", "LANE_DONE_CLAIMED fix-login"]) relay.offer(line);
   expect(await relay.flush()).toBe(2);
   expect(sent(world)).toEqual([]);
   world.panes[0]!.agent_status = "done";
   expect(await relay.flush()).toBe(0);
-  expect(sent(world)).toEqual(["LANE_WATCH_READY", "LANE_DONE_CLAIMED fix-login"]);
+  expect(sent(world)).toEqual(["LANE_WATCH_READY\nLANE_DONE_CLAIMED fix-login"]);
   // A line that went out is never typed again.
   expect(await relay.flush()).toBe(0);
-  expect(sent(world)).toHaveLength(2);
+  expect(sent(world)).toHaveLength(1);
 });
 
 test("a lead pane with no live agent keeps the lines, and they go out in order once it is back", async () => {
@@ -33,7 +34,7 @@ test("a lead pane with no live agent keeps the lines, and they go out in order o
   expect(sent(world)).toEqual([]);
   world.panes[0]!.agent_status = "idle";
   expect(await relay.flush()).toBe(0);
-  expect(sent(world)).toEqual(["LANE_DONE_CLAIMED a", "LANE_CLOSED a"]);
+  expect(sent(world)).toEqual(["LANE_DONE_CLAIMED a\nLANE_CLOSED a"]);
 });
 
 test("backticks and $( in a relayed line are defused, so the line still arrives", async () => {
@@ -65,4 +66,34 @@ test("a flush on an empty queue does not stall the relay: a line offered afterwa
   relay.offer('LANE_DONE_CLAIMED second-lane');
   expect(await relay.flush()).toBe(0);
   expect(sent(world)).toEqual(['LANE_DONE_CLAIMED second-lane']);
+});
+
+test("with a settle window, a burst of short lines waits for the sender to pause and reaches an idle lead as one message", async () => {
+  const { world, relay, clock } = setup("idle", 6_000);
+  relay.offer("LANE_A 회의");
+  expect(await relay.flush()).toBe(1);
+  clock.at += 4_000;
+  relay.offer("LANE_A 금요일에");
+  expect(await relay.flush()).toBe(2);
+  clock.at += 5_000;
+  relay.offer("LANE_A 가능하세요?");
+  clock.at += 5_999;
+  expect(await relay.flush()).toBe(3);
+  expect(sent(world)).toEqual([]);
+  clock.at += 1;
+  expect(await relay.flush()).toBe(0);
+  expect(sent(world)).toEqual(["LANE_A 회의\nLANE_A 금요일에\nLANE_A 가능하세요?"]);
+});
+
+test("a burst that never pauses still goes out once six settle windows have passed since its first line", async () => {
+  const { world, relay, clock } = setup("idle", 6_000);
+  for (let i = 0; i < 8; i++) {
+    relay.offer(`LANE_A ${i}`);
+    expect(await relay.flush()).toBe(i + 1);
+    if (i < 7) clock.at += 5_000;
+  }
+  // The last line came 1 s ago, but the first came 36 s ago.
+  clock.at += 1_000;
+  expect(await relay.flush()).toBe(0);
+  expect(sent(world)).toHaveLength(1);
 });
