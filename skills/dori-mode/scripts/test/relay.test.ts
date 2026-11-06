@@ -5,11 +5,11 @@ import { fakeClock, fakeRunner, newWorld, sent } from "./fakes.ts";
 
 const T0 = Date.parse("2026-01-01T12:00:00Z");
 
-const setup = (status: string | undefined, settleMs = 0) => {
+const setup = (status: string | undefined, settleMs = 0, burstKey?: RegExp) => {
   const world = newWorld();
   world.panes = [{ pane_id: "lead:p1", workspace_id: "lead", agent: "omp", ...(status ? { agent_status: status } : {}) }];
   const clock = fakeClock(T0);
-  const relay = new Relay({ run: fakeRunner(world), clock, pane: "lead:p1", filter: /^LANE_/, settleMs });
+  const relay = new Relay({ run: fakeRunner(world), clock, pane: "lead:p1", filter: /^LANE_/, settleMs, ...(burstKey ? { burstKey } : {}) });
   return { world, relay, clock };
 };
 
@@ -96,4 +96,57 @@ test("a burst that never pauses still goes out once six settle windows have pass
   clock.at += 1_000;
   expect(await relay.flush()).toBe(0);
   expect(sent(world)).toHaveLength(1);
+});
+
+test("in a busy chat each sender settles on their own: one who has finished is not held back by one still typing", async () => {
+  // One group: the sender only, so no turn-taking applies and each sender waits out their own window.
+  const { world, relay, clock } = setup("idle", 6_000, /^LANE_\w+ (\w+)/);
+  relay.offer("LANE_room A 점심"); // 0 s
+  clock.at += 2_000;
+  relay.offer("LANE_room B 저는"); // 2 s
+  clock.at += 2_000;
+  relay.offer("LANE_room A 뭐 먹어요?"); // 4 s
+  clock.at += 3_000;
+  relay.offer("LANE_room B 아무거나"); // 7 s
+  expect(await relay.flush()).toBe(4);
+  expect(sent(world)).toEqual([]);
+  clock.at += 3_000;
+  relay.offer("LANE_room B 좋아요"); // 10 s: A has been quiet for 6 s, B is still typing
+  expect(await relay.flush()).toBe(3);
+  expect(sent(world)).toEqual(["LANE_room A 점심\nLANE_room A 뭐 먹어요?"]);
+  clock.at += 6_000;
+  expect(await relay.flush()).toBe(0);
+  expect(sent(world)).toEqual(["LANE_room A 점심\nLANE_room A 뭐 먹어요?", "LANE_room B 저는\nLANE_room B 아무거나\nLANE_room B 좋아요"]);
+});
+
+test("a sender's next burst starts fresh once their last one went out", async () => {
+  const { world, relay, clock } = setup("idle", 6_000, /^LANE_(\w+) (\w+)/);
+  relay.offer("LANE_room A 하나");
+  clock.at += 6_000;
+  expect(await relay.flush()).toBe(0);
+  clock.at += 60_000;
+  relay.offer("LANE_room A 둘");
+  // A burst that ended a minute ago must not count toward the cap of this one.
+  expect(await relay.flush()).toBe(1);
+  clock.at += 6_000;
+  expect(await relay.flush()).toBe(0);
+  expect(sent(world)).toEqual(["LANE_room A 하나", "LANE_room A 둘"]);
+});
+
+test("in a conversation, someone else speaking ends the earlier speaker's turn: their lines go out without waiting", async () => {
+  const { world, relay, clock } = setup("idle", 6_000, /^LANE_(\w+) (\w+)/);
+  relay.offer("LANE_room A 점심");
+  clock.at += 1_000;
+  relay.offer("LANE_room A 뭐 먹어요?");
+  relay.offer("LANE_other C 다른 방"); // another room does not end A's turn
+  expect(await relay.flush()).toBe(3);
+  clock.at += 1_000;
+  relay.offer("LANE_room B 김치찌개요");
+  expect(await relay.flush()).toBe(2);
+  expect(sent(world)).toEqual(["LANE_room A 점심\nLANE_room A 뭐 먹어요?"]);
+  // A speaks again: B's turn is over, A's new burst waits for A.
+  clock.at += 1_000;
+  relay.offer("LANE_room A 좋아요");
+  expect(await relay.flush()).toBe(2);
+  expect(sent(world)).toEqual(["LANE_room A 점심\nLANE_room A 뭐 먹어요?", "LANE_room B 김치찌개요"]);
 });

@@ -63,9 +63,10 @@ const USAGE = `dori <command> [options]
   pause  <key> [--note TEXT]           the owner said wait: goal paused (read back), running turn stopped, no nudges; exit 3 if unconfirmed
   resume <key> [--note TEXT]           undo pause: goal resumed (read back), lane back to its earlier status
   watch                                long-running: emits LANE_* lines every 30 s
-  relay --filter REGEX [--to PANE] [--settle SEC] -- <command ...>
+  relay --filter REGEX [--to PANE] [--settle SEC [--burst-key REGEX]] -- <command ...>
                                        run a long-running command and type matching lines into PANE (default leadPane);
-                                       --settle holds a burst until SEC pass with no new line, then sends it as one message
+                                       --settle holds each sender's burst until they send nothing for SEC, then sends it
+                                       as one message; --burst-key's capture groups name the sender (default: one sender)
   freshness [--loop MIN]               nudge silent lanes, post their last report via hooks.threadReply
   dead-panes [--loop MIN]              print DEAD_PANE <id> for stopped agent panes
   guard [--loop MIN]                   host load, memory, disk and pane-count alerts
@@ -358,7 +359,7 @@ try {
       const sep = rest.indexOf("--");
       const cmd = sep >= 0 ? rest.slice(sep + 1) : [];
       const filterText = need("filter");
-      if (!cmd.length) die("usage: dori relay --filter REGEX [--to PANE] [--settle SEC] -- <command ...>");
+      if (!cmd.length) die("usage: dori relay --filter REGEX [--to PANE] [--settle SEC [--burst-key REGEX]] -- <command ...>");
       const settleSec = Number(opt("settle") ?? "0");
       if (!Number.isFinite(settleSec) || settleSec < 0) die("--settle must be a number of seconds, 0 or more");
       let filter: RegExp;
@@ -368,7 +369,14 @@ try {
         filter = die(`--filter is not a valid regular expression: ${e instanceof Error ? e.message : String(e)}`);
       }
       const pane = opt("to") || config.leadPane || die("relay needs --to PANE or leadPane in the config");
-      const relay = new Relay({ run, clock: realClock, pane, filter, settleMs: settleSec * 1000 });
+      const keyText = opt("burst-key");
+      let burstKey: RegExp | undefined;
+      try {
+        burstKey = keyText ? new RegExp(keyText) : undefined;
+      } catch (e) {
+        burstKey = die(`--burst-key is not a valid regular expression: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      const relay = new Relay({ run, clock: realClock, pane, filter, settleMs: settleSec * 1000, ...(burstKey ? { burstKey } : {}) });
       const child = Bun.spawn(cmd, { stdout: "pipe", stderr: "inherit", stdin: "ignore" });
       // A line that could not be typed (the lead's pane was busy with a shell, or herdr was down) is retried every 5 s.
       const retry = setInterval(() => void relay.flush(), 5_000);
