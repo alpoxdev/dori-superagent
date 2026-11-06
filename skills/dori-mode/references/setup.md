@@ -60,7 +60,7 @@ Then edit `~/.dori/config.json`: at least `leadPane` (your own terminal: its `hc
 
 ## 5. Relays
 
-omp has no line-filtered monitor: a background job reports only when it ends. Run each watcher under `dori relay` instead. It runs the command, prints all of its output, and types each line that matches `--filter` into `leadPane` (or `--to PANE`) as its own message, once, in order, and only while that agent is idle or done: text typed into a turn can be lost, so lines wait while you work and arrive after your turn ends. A line it could not type (no live agent, a shell in front, a blocked dialog) is retried every 5 seconds; backticks and `$(` in a line are defused so the line still arrives.
+omp has no line-filtered monitor: a background job reports only when it ends. Run each watcher under `dori relay` instead. It runs the command, prints all of its output, and types each line that matches `--filter` into `leadPane` (or `--to PANE`) as its own message, once, in order, including while you work: omp hands you a message typed mid-turn as an interjection, so a long background job does not keep new messages from you. Only a blocked dialog makes lines wait. A line it could not type (no live agent, a shell in front, a blocked dialog) is retried every 5 seconds; backticks and `$(` in a line are defused so the line still arrives.
 
 Start each in its own terminal that outlives your session (`hc run --bg --no-parent --name dori-<relay> -- <command>`), or as an omp named service (`bash` with a `name`):
 

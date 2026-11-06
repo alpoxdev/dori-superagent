@@ -13,12 +13,13 @@ const setup = (status: string | undefined, settleMs = 0, burstKey?: RegExp) => {
   return { world, relay, clock };
 };
 
-test("a working lead is never typed into: matching lines wait, then go out once, together and in order, when it is idle", async () => {
-  const { world, relay } = setup("working");
+test("a working lead is typed into, a blocked one never: lines wait out a dialog, then go out once, together and in order", async () => {
+  // omp reads a message typed mid-turn as an interjection, so a lead waiting on a long background job still hears it.
+  const { world, relay } = setup("blocked");
   for (const line of ["LANE_WATCH_READY", "checking 3 lanes", "LANE_DONE_CLAIMED fix-login"]) relay.offer(line);
   expect(await relay.flush()).toBe(2);
   expect(sent(world)).toEqual([]);
-  world.panes[0]!.agent_status = "done";
+  world.panes[0]!.agent_status = "working";
   expect(await relay.flush()).toBe(0);
   expect(sent(world)).toEqual(["LANE_WATCH_READY\nLANE_DONE_CLAIMED fix-login"]);
   // A line that went out is never typed again.

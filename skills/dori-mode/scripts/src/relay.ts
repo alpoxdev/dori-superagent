@@ -110,9 +110,10 @@ export class Relay {
   }
 
   /**
-   * Sends the queued lines while the pane's agent is ready to read; returns how many are left. Text typed into an omp
-   * that is mid-turn can be lost (it lands in whatever the turn has in front), so lines go out only when the agent
-   * reports idle or done; until then they wait and the next flush tries again. Every line whose sender has settled goes
+   * Sends the queued lines while the pane's agent can read them; returns how many are left. That includes a working
+   * agent: omp takes a message typed mid-turn as an interjection, backgrounding a running command or ending a wait on a
+   * background job to read it, so a lead busy with a long search still hears a new chat message. Only a blocked agent (a
+   * dialog in front, where the text would land in the dialog) makes the lines wait for the next flush. Every line whose sender has settled goes
    * out in one message, one line each, in the order they came, so the agent reads a burst together and answers it once;
    * lines from a sender still typing stay for a later flush. A message is typed once: "unconfirmed" (the agent did not
    * visibly pick it up) counts as sent, because typing it again could deliver it twice. Only "failed" (no live agent, a
@@ -133,7 +134,7 @@ export class Relay {
       const ready = this.pending.filter((q) => !this.settling(q.key));
       if (ready.length === 0) break;
       const { status } = await statusLookup(this.deps.run, this.deps.pane);
-      if (status !== "idle" && status !== "done") break;
+      if (status !== "idle" && status !== "done" && status !== "working") break;
       if ((await sendVerified(this.deps.run, this.deps.clock, this.deps.pane, ready.map((q) => q.text).join("\n"))) === "failed") break;
       for (const q of ready) this.pending.splice(this.pending.indexOf(q), 1);
       // A sender with nothing left starts a fresh burst next time.

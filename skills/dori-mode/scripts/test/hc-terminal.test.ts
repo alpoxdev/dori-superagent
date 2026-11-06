@@ -69,17 +69,15 @@ test("hc terminals become panes: a shell is no agent, lanes are grouped by their
   expect(await statusLookup(hc.run, "t9")).toEqual({ status: undefined });
 });
 
-test("the relay holds lines while the lead works, sends them together with hc send once it is done, and never into a blocked lead", async () => {
-  const lead: Term = { address: "t2", name: "dori-lead", agent: "omp", state: "live", status: "working", foreground: { name: "omp", argv: ["omp"] } };
+test("the relay types into a working lead with hc send, but never into a blocked one", async () => {
+  const lead: Term = { address: "t2", name: "dori-lead", agent: "omp", state: "live", status: "blocked", foreground: { name: "omp", argv: ["omp"] } };
   const hc = hcWorld([lead]);
   const relay = new Relay({ run: hc.run, clock: fakeClock(0), pane: "dori-lead", filter: /^INBOUND/ });
   relay.offer('INBOUND dm 1 - 2 1 "first"');
   relay.offer('INBOUND dm 1 - 3 1 "second"');
   expect(await relay.flush()).toBe(2);
-  lead.status = "blocked";
-  expect(await relay.flush()).toBe(2);
   expect(hc.sent).toEqual([]);
-  lead.status = "done";
+  lead.status = "working";
   expect(await relay.flush()).toBe(0);
   expect(hc.sent).toEqual(['INBOUND dm 1 - 2 1 "first"\nINBOUND dm 1 - 3 1 "second"']);
 });
