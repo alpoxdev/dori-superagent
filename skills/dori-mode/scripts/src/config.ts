@@ -49,9 +49,10 @@ export type DoriConfig = {
   /**
    * kakaotalk-bridge: its data folder (credentials and archives), the profile it was logged in with, and the Unix socket
    * its resident receiver serves (empty: `<dataDir>/<profile>.sock`), and the open chats the Dori may answer, by chat id
-   * (empty: every open chat; any other room stays read-only).
+   * (empty: every open chat), and the ordinary rooms it may answer, by chat id (empty: none; any other room stays
+   * read-only).
    */
-  readonly kakaotalk: { readonly dataDir: string; readonly profile: string; readonly socket: string; readonly openChats: readonly string[] };
+  readonly kakaotalk: { readonly dataDir: string; readonly profile: string; readonly socket: string; readonly openChats: readonly string[]; readonly chats: readonly string[] };
 };
 
 export const defaultConfig = (home = homedir()): DoriConfig => ({
@@ -79,7 +80,7 @@ export const defaultConfig = (home = homedir()): DoriConfig => ({
   hooks: {},
   repoIdentities: {},
   supervision: { hungAfterMinutes: 20, staleAfterMinutes: 20, defaults: { wallMinutes: null, tokens: null, costUsd: null } },
-  kakaotalk: { dataDir: join(home, ".local", "share", "kakaotalk-bridge"), profile: "dori", socket: "", openChats: [] },
+  kakaotalk: { dataDir: join(home, ".local", "share", "kakaotalk-bridge"), profile: "dori", socket: "", openChats: [], chats: [] },
 });
 
 export const configPath = (): string => process.env.DORI_CONFIG ?? join(homedir(), ".dori", "config.json");
@@ -171,6 +172,9 @@ export const loadConfig = async (path = configPath(), home = homedir()): Promise
       openChats: Array.isArray(merged.kakaotalk.openChats) && merged.kakaotalk.openChats.every((id) => typeof id === "string" && /^\d+$/.test(id))
         ? merged.kakaotalk.openChats
         : (() => { throw new ConfigError("invalid kakaotalk.openChats: expected a list of chat ids as strings, e.g. [\"18498738616482001\"]"); })(),
+      chats: Array.isArray(merged.kakaotalk.chats) && merged.kakaotalk.chats.every((id) => typeof id === "string" && /^\d+$/.test(id))
+        ? merged.kakaotalk.chats
+        : (() => { throw new ConfigError("invalid kakaotalk.chats: expected a list of chat ids as strings, e.g. [\"418083914234178\"]"); })(),
     },
     terminal: terminalKind(process.env.DORI_TERMINAL ?? merged.terminal),
   };

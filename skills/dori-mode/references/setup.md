@@ -73,7 +73,7 @@ Start each in its own terminal that outlives your session (`hc run --bg --no-par
 | freshness | `dori relay --filter '^(NUDGED\|POSTED\|NO-REPORT\|PENDING-REPORT\|STALE-REPORT\|STALLED\|JOURNAL-ERROR\|WORKING-WHILE-PAUSED)' -- dori freshness --loop 5` | `^(NUDGED\|POSTED\|…\|WORKING-WHILE-PAUSED)` |
 | Slack inbound (Slack only) | `dori relay --filter '^INBOUND' -- dori inbound slack --loop 1` | `^INBOUND` |
 | Telegram inbound (Telegram only) | `DORI_TELEGRAM_TOKEN=… DORI_TELEGRAM_OWNER_ID=… dori relay --filter '^INBOUND' -- dori inbound telegram --loop 1` | `^INBOUND` |
-| KakaoTalk inbound (KakaoTalk only) | `dori relay --filter '^INBOUND kakao-open' --settle 6 --burst-key '^INBOUND kakao-open (\d+) \d+ \d+ (\d+)' -- dori inbound kakaotalk --loop 1` | `^INBOUND kakao-open` |
+| KakaoTalk inbound (KakaoTalk only) | `dori relay --filter '^INBOUND kakao-' --settle 6 --burst-key '^INBOUND kakao-\w+ (\d+) \d+ \d+ (\d+)' -- dori inbound kakaotalk --loop 1` | `^INBOUND kakao-` |
 | presence (optional) | `dori relay --filter '^PRESENCE_READY' -- dori presence slack` (or `discord`) | `^PRESENCE_READY` |
 
 Chat people send one thought as several short messages a few seconds apart; `--settle 6` holds such a burst until the person pauses (six seconds for someone new, then about twice their own usual gap, 2 to 12 seconds), so you get it as one message and answer it once, not line by line. `--burst-key` (room, then author) makes that wait per person: in a busy room someone still typing does not hold back someone who has finished, and when another person speaks in the room the earlier speaker's lines go out at once. In a shell the `|` inside a filter is a plain `|`; the table escapes it only for Markdown. When the relayed command exits, `dori relay` exits with its code after one more minute of retries, and prints `RELAY_UNDELIVERED <n>` if lines were left.
@@ -92,7 +92,7 @@ kakaotalk-bridge --profile dori --receive --socket ~/.local/share/kakaotalk-brid
 
 Login takes a tablet slot and never evicts another device. The account is the owner's own: every answer goes out under the owner's name. A new device gets no history; only messages from the login on are stored. The receiver owns the account while it runs, so dori reads its archive directly and sends through its socket (`kakaotalk.dataDir`, `kakaotalk.profile`, `kakaotalk.socket` in the config).
 
-The rule is enforced in code: a room with a link id (an open chat) may be answered; an ordinary room is read-only. `dori send kakaotalk` refuses it with `KAKAO_READ_ONLY_ROOM` (exit 5) before the bridge is called, and nothing is ever marked read there. Only open-chat messages wake you (`INBOUND kakao-open`); read an ordinary room when the owner asks, with `dori kakaotalk read <chat-id>`.
+The rule is enforced in code: a room with a link id (an open chat) may be answered; an ordinary room is read-only unless its chat id is in `kakaotalk.chats`. `dori send kakaotalk` refuses it with `KAKAO_READ_ONLY_ROOM` (exit 5) before the bridge is called, and nothing is ever marked read there. Only answerable rooms wake you (`INBOUND kakao-open`, or `INBOUND kakao-chat` for a listed ordinary room); read any other room when the owner asks, with `dori kakaotalk read <chat-id>`.
 
 ## 6. First look around
 

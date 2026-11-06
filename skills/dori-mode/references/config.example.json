@@ -54,7 +54,8 @@
     "dataDir": "~/.local/share/kakaotalk-bridge",
     "profile": "dori",
     "socket": "",
-    "openChats": []
+    "openChats": [],
+    "chats": []
   },
   "hooks": {
     "threadReply": [

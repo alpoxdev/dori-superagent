@@ -75,7 +75,7 @@ const USAGE = `dori <command> [options]
   send <slack|telegram|discord> --to TARGET --text TEXT [--thread ID] [--edit ID]
                                        post or edit a message (tokens from DORI_SLACK_TOKEN, DORI_TELEGRAM_TOKEN, DORI_DISCORD_TOKEN)
   send kakaotalk --to CHAT_ID (--text TEXT | --image PATH)
-                                       send through kakaotalk-bridge; open chats only, an ordinary room is refused (exit 5)
+                                       send through kakaotalk-bridge; answerable rooms only, a read-only room is refused (exit 5)
   kakaotalk rooms | read <chat-id> [--limit N]
                                        list KakaoTalk rooms (open or read-only) / print a room's stored messages; never marks read
   presence <slack|discord>             keep the account shown as online until stopped
@@ -84,7 +84,7 @@ const USAGE = `dori <command> [options]
   transcribe <audio-file>              run hooks.transcribe and print the text
   inbound slack|telegram [--loop MIN]  print INBOUND lines: Slack unread thread replies / Telegram owner DMs, edits and media + configured topic
                                        the Dori posted in (any helper), DMs and channels with unread mentions
-  inbound kakaotalk [--loop MIN]       print INBOUND kakao-open lines: messages others wrote in KakaoTalk open chats`;
+  inbound kakaotalk [--loop MIN]       print INBOUND kakao-open / kakao-chat lines: messages others wrote in answerable rooms`;
 
 // An owner message older than this no longer shows the Dori typing, even if it was never answered.
 const TYPING_MAX_MS = 15 * 60_000;
@@ -407,7 +407,7 @@ try {
       if (platform === "kakaotalk") {
         const image = opt("image");
         const content = image ? { image } : { text: need("text") };
-        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats);
+        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats, config.kakaotalk.chats);
         try {
           console.log(`SENT ${await sendKakao(archive, bridgeSocket(config.kakaotalk.socket), to, content, `dori-${to}-${Date.now()}-${process.pid}`)}`);
         } catch (e) {
@@ -480,13 +480,13 @@ try {
       }
     }
     case "kakaotalk": {
-      const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats);
+      const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats, config.kakaotalk.chats);
       if (key === "rooms") {
-        for (const r of archive.rooms()) console.log(`${r.open ? "open     " : "read-only"} ${r.chatId} ${r.linkId} ${JSON.stringify(r.name)}`);
+        for (const r of archive.rooms()) console.log(`${r.answerable ? (r.open ? "open     " : "chat     ") : "read-only"} ${r.chatId} ${r.linkId} ${JSON.stringify(r.name)}`);
       } else if (key === "read") {
         const chat = flags.positionals[1] ?? die("usage: dori kakaotalk read <chat-id> [--limit N]");
         const room = archive.room(chat) ?? die(`no KakaoTalk room ${chat} in the archive`);
-        console.log(`ROOM ${room.chatId} ${room.open ? "open" : "read-only"} ${JSON.stringify(room.name)}`);
+        console.log(`ROOM ${room.chatId} ${room.answerable ? (room.open ? "open" : "chat") : "read-only"} ${JSON.stringify(room.name)}`);
         for (const m of archive.recent(chat, Number(opt("limit") ?? 30))) {
           console.log(`${new Date(m.sentAt).toISOString()} ${m.authorId === archive.selfId ? "me" : m.authorId} ${JSON.stringify(m.text)}${m.attachment ? " attachment" : ""}`);
         }
@@ -496,7 +496,7 @@ try {
     }
     case "inbound": {
       if (key === "kakaotalk") {
-        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats);
+        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile), config.kakaotalk.openChats, config.kakaotalk.chats);
         const call = bridgeSocket(config.kakaotalk.socket);
         const store = fileKakaoStore(`${config.stateDir}/kakaotalk-seq`);
         // A room the archive has not seen yet: refresh the room list through the resident receiver, then look again.

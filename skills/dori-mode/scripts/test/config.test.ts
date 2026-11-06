@@ -69,3 +69,13 @@ test("kakaotalk.openChats accepts chat ids only as strings, so ids past 2^53 kee
   await Bun.write(path, '{"kakaotalk":{"openChats":[18498738616482001]}}');
   await expect(loadConfig(path, "/home/ana")).rejects.toThrow("invalid kakaotalk.openChats");
 });
+
+test("kakaotalk.chats defaults to none and accepts chat ids only as strings", async () => {
+  const path = join(state.dir, "config.json");
+  await Bun.write(path, "{}");
+  expect((await loadConfig(path, "/home/ana")).kakaotalk.chats).toEqual([]);
+  await Bun.write(path, JSON.stringify({ kakaotalk: { chats: ["418083914234178"] } }));
+  expect((await loadConfig(path, "/home/ana")).kakaotalk.chats).toEqual(["418083914234178"]);
+  await Bun.write(path, '{"kakaotalk":{"chats":[418083914234178]}}');
+  await expect(loadConfig(path, "/home/ana")).rejects.toThrow("invalid kakaotalk.chats");
+});

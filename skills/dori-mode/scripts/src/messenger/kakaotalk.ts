@@ -9,11 +9,12 @@ import { basename, dirname, join } from "node:path";
  * SQLite archive and serves MCP tools on a Unix socket. dori reads the archive directly and sends through the socket.
  *
  * The rule this module enforces, in code rather than in a prompt: an open chat (link_id != 0) may be answered; an
- * ordinary room (link_id == 0), or a room the archive does not know, is read-only. Nothing is sent there and nothing is
- * marked read, so its members never see the Dori.
+ * ordinary room (link_id == 0) only when the owner listed it by chat id. Every other room, and a room the archive does
+ * not know, is read-only. Nothing is sent there and nothing is marked read, so its members never see the Dori.
  */
 
-export type KakaoRoom = { readonly chatId: string; readonly linkId: string; readonly name: string; readonly open: boolean };
+/** `open`: an open chat (it has a link id). `answerable`: the Dori may answer it and it wakes the lead. */
+export type KakaoRoom = { readonly chatId: string; readonly linkId: string; readonly name: string; readonly open: boolean; readonly answerable: boolean };
 
 export type KakaoMessage = {
   readonly seq: number;
@@ -42,9 +43,10 @@ export class KakaoArchive {
 
   /**
    * `openChats` lists the open chats the Dori may answer, by chat id. Empty: every open chat. An open chat not on a
-   * non-empty list is treated like an ordinary room: read-only, and it wakes no one.
+   * non-empty list is read-only, and it wakes no one. `chats` lists the ordinary rooms the Dori may answer; empty (the
+   * default) keeps every ordinary room read-only.
    */
-  constructor(readonly path: string, readonly openChats: readonly string[] = []) {
+  constructor(readonly path: string, readonly openChats: readonly string[] = [], readonly chats: readonly string[] = []) {
     // The bridge keeps the archive in WAL mode and removes its -shm file between writes; a readonly connection cannot
     // recreate it and fails to open. Open read-write so SQLite can manage that file, and refuse every write ourselves.
     this.db = new Database(path, { readwrite: true, create: false });
@@ -76,7 +78,8 @@ export class KakaoArchive {
 
   private toRoom(row: { chat_id: string; link_id: string; metadata: string }): KakaoRoom {
     const room = toRoom(row);
-    return room.open && this.openChats.length > 0 && !this.openChats.includes(room.chatId) ? { ...room, open: false } : room;
+    const answerable = room.open ? this.openChats.length === 0 || this.openChats.includes(room.chatId) : this.chats.includes(room.chatId);
+    return { ...room, answerable };
   }
 
   lastSeq(): number {
@@ -117,7 +120,7 @@ const toRoom = (row: { chat_id: string; link_id: string; metadata: string }): Ka
   } catch {
     // A room with unreadable metadata keeps its ids; its kind comes from link_id alone.
   }
-  return { chatId: row.chat_id, linkId: row.link_id, name, open: row.link_id !== "0" };
+  return { chatId: row.chat_id, linkId: row.link_id, name, open: row.link_id !== "0", answerable: row.link_id !== "0" };
 };
 
 /** One MCP tool call against the bridge's Unix socket: initialize, call, close. Returns the tool's `data`. */
@@ -195,8 +198,8 @@ export const fileKakaoStore = (path: string): KakaoInboundStore => ({
 });
 
 /**
- * One pass over messages received since the stored cursor. Only messages someone else wrote in an open chat are
- * emitted; the Dori's own sends and every ordinary room are passed over (they stay readable with `dori kakaotalk read`).
+ * One pass over messages received since the stored cursor. Only messages someone else wrote in an answerable room are
+ * emitted; the Dori's own sends and every read-only room are passed over (they stay readable with `dori kakaotalk read`).
  * A room the archive does not know yet (an open chat joined after the last room sync) triggers one sync and is looked
  * up again; if it is still unknown it is treated as ordinary, the safe side. A first run starts at the archive's tail
  * instead of replaying everything stored before it.
@@ -224,7 +227,7 @@ export const pollKakaoInbound = async (
         await sync();
         room = archive.room(m.chatId);
       }
-      if (room?.open && m.authorId !== archive.selfId) {
+      if (room?.answerable && m.authorId !== archive.selfId) {
         const inbound = { ...m, room };
         emit(inbound); // may throw: the cursor stays before this message, so it is read again
         out.push(inbound);
@@ -238,13 +241,13 @@ export const pollKakaoInbound = async (
 export type KakaoContent = { readonly text: string } | { readonly image: string };
 
 /**
- * Sends one text or image to an open chat. An ordinary room, or one the archive does not know, is refused before the
+ * Sends one text or image to an answerable room. A read-only room, or one the archive does not know, is refused before the
  * bridge is called: nothing reaches the server.
  */
 export const sendKakao = async (archive: KakaoArchive, call: KakaoCall, chatId: string, content: KakaoContent, idempotencyKey: string): Promise<string> => {
   const room = archive.room(chatId);
   if (!room) throw new KakaoReadOnlyRoomError(`KAKAO_UNKNOWN_ROOM ${chatId}: not in the archive, so it cannot be shown to be an open chat; nothing was sent`);
-  if (!room.open) throw new KakaoReadOnlyRoomError(`KAKAO_READ_ONLY_ROOM ${chatId} (${room.name}): an ordinary room is read-only; nothing was sent`);
+  if (!room.answerable) throw new KakaoReadOnlyRoomError(`KAKAO_READ_ONLY_ROOM ${chatId} (${room.name}): this room is read-only (not in kakaotalk.openChats or kakaotalk.chats); nothing was sent`);
   const data = (await call("send_message", {
     room: { chat_id: room.chatId, link_id: room.linkId },
     idempotency_key: idempotencyKey,
@@ -257,4 +260,4 @@ export const sendKakao = async (archive: KakaoArchive, call: KakaoCall, chatId: 
 
 /** The line `dori inbound kakaotalk` prints for one message; the text is JSON-escaped onto one line. */
 export const kakaoInboundLine = (i: KakaoInbound): string =>
-  `INBOUND kakao-open ${i.chatId} ${i.room.linkId} ${i.logId} ${i.authorId} ${JSON.stringify(i.text)}${i.attachment ? " attachment" : ""} room=${JSON.stringify(i.room.name)}`;
+  `INBOUND ${i.room.open ? "kakao-open" : "kakao-chat"} ${i.chatId} ${i.room.linkId} ${i.logId} ${i.authorId} ${JSON.stringify(i.text)}${i.attachment ? " attachment" : ""} room=${JSON.stringify(i.room.name)}`;

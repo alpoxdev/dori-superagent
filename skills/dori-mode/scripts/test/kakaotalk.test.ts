@@ -46,8 +46,8 @@ test("the archive is found per profile, rooms are open only with a link id, and 
   expect(() => findKakaoArchive(a.dataDir, "other")).toThrow("expected one account archive");
   const archive = new KakaoArchive(a.path);
   expect(archive.selfId).toBe(SELF);
-  expect(archive.room(OPEN)).toEqual({ chatId: OPEN, linkId: OPEN_LINK, name: "민열", open: true });
-  expect(archive.room(ROOM)?.open).toBe(false);
+  expect(archive.room(OPEN)).toEqual({ chatId: OPEN, linkId: OPEN_LINK, name: "민열", open: true, answerable: true });
+  expect(archive.room(ROOM)).toMatchObject({ open: false, answerable: false });
   expect(archive.rooms().map((r) => r.chatId)).toEqual([OPEN, ROOM]);
 });
 
@@ -121,7 +121,7 @@ test("with an open-chat list, an open chat not on it is read-only: it wakes no o
   const a = archiveAt();
   a.addRoom(LATE, "777", "다른 오픈채팅");
   const archive = new KakaoArchive(a.path, [OPEN]);
-  expect(archive.rooms().filter((r) => r.open).map((r) => r.chatId)).toEqual([OPEN]);
+  expect(archive.rooms().filter((r) => r.answerable).map((r) => r.chatId)).toEqual([OPEN]);
   const store = fileKakaoStore(join(state.dir, "kakaotalk-seq"));
   store.save(0);
   a.receive(LATE, "30", "99", "not on the list");
@@ -130,4 +130,27 @@ test("with an open-chat list, an open chat not on it is read-only: it wakes no o
   let called = false;
   await expect(sendKakao(archive, async () => { called = true; return {}; }, LATE, { text: "hi" }, "k")).rejects.toBeInstanceOf(KakaoReadOnlyRoomError);
   expect(called).toBe(false);
+});
+
+test("an ordinary room on the chats list is answerable: it wakes the lead as kakao-chat and can be sent to; others stay read-only", async () => {
+  const a = archiveAt();
+  a.addRoom("418083914200000", "0", "다른 개인방");
+  const archive = new KakaoArchive(a.path, [], [ROOM]);
+  expect(archive.room(ROOM)).toMatchObject({ open: false, answerable: true });
+  const store = fileKakaoStore(join(state.dir, "kakaotalk-seq"));
+  store.save(0);
+  const lines: string[] = [];
+  a.receive(ROOM, "40", "7567102", "여기 답해");
+  a.receive("418083914200000", "41", "7567102", "not on the list");
+  await pollKakaoInbound(archive, store, async () => {}, (i) => lines.push(kakaoInboundLine(i)));
+  expect(lines).toEqual([`INBOUND kakao-chat ${ROOM} 0 40 7567102 "여기 답해" room="가족"`]);
+  const calls: Record<string, unknown>[] = [];
+  const call = async (_tool: string, args: Record<string, unknown>) => {
+    calls.push(args);
+    return { server_receipt: { log_id: "1" } };
+  };
+  expect(await sendKakao(archive, call, ROOM, { text: "네" }, "k1")).toBe("1");
+  expect(calls[0]?.room).toEqual({ chat_id: ROOM, link_id: "0" });
+  await expect(sendKakao(archive, call, "418083914200000", { text: "x" }, "k2")).rejects.toBeInstanceOf(KakaoReadOnlyRoomError);
+  expect(calls).toHaveLength(1);
 });
