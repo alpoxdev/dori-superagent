@@ -1,11 +1,12 @@
 {
   "stateDir": "~/.dori/state",
+  "terminal": "hc",
   "laneWorkspace": "lanes",
   "workspaces": [
     "lanes"
   ],
   "ignorePanes": [],
-  "leadPane": "<your herdr pane id, from: herdr pane current>",
+  "leadPane": "<your own hc terminal: its name, e.g. dori-lead, or $HC_TERMINAL_ID>",
   "defaultCwd": "~/code/my-project",
   "agentCommand": [
     "omp",

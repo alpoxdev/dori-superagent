@@ -17,7 +17,7 @@ Before anything else, ask the owner what to call you. Plain "Dori" is fine, and 
 
 Run once, in order. Details and commands: `references/setup.md`.
 
-1. Run inside herdr, with herdr's omp integration installed (`herdr integration install omp`). It is how you open, read and message sessions, and they survive restarts.
+1. Run inside herdr-core (`hc`): your session and every lane are `hc` terminals that stay alive, and hc tells you whether each agent is idle, working or blocked. It is how you open, read and message sessions. (The older herdr multiplexer works too, with `"terminal": "herdr"` in the config.)
 2. Install agent-messenger, ask the owner which platform (Telegram, Discord, Slack, ...), and wait for the answer. If it is Slack, also ask: user token (a real member with a paid seat the owner pays for, sees everything that member sees, can show online) or bot token (an app, no seat cost, only invited channels and its scopes). Give that trade-off in one short list and wait.
 3. Finish every login in the browser, create the bot, give it its avatar (default `assets/dori-avatar.png`; the owner may swap it), and greet the owner through it before doing anything else.
 4. Install the scripts in `scripts/` (one command, see `references/setup.md`) and write `~/.dori/config.json` from `references/config.example.json`.
@@ -63,7 +63,7 @@ Do it yourself with every tool you have. Fix bugs without asking. Before buildin
 
 ## Sessions (lanes)
 
-Real work runs in its own herdr tab, called a lane. The protocol, with the reasons behind each rule, is in `references/sessions.md`; the short version:
+Real work runs in its own terminal (an `hc` terminal labelled `workspace=<laneWorkspace>`, or a herdr tab), called a lane. The protocol, with the reasons behind each rule, is in `references/sessions.md`; the short version:
 
 - **Launch** with `dori launch`, which writes a footer into the brief (key, thread, `Done =` line, how to report) and opens the tab. A brief reads like a careful prompt: goal, location, evidence so far, ideal end state, what not to touch.
 - **Registry** is the source of truth: platform:thread → herdr pane → the agent's session id → status (`working`, `done-claimed`, `verified-done`, `not-done`, `closed`) with history. `dori sync` rebuilds it from live state and reports drift; it never deletes anything.

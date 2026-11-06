@@ -2,15 +2,16 @@
 
 Run these once, in order. Stop and ask the owner wherever a step needs their choice or their hand.
 
-## 1. herdr
+## 1. herdr-core
 
-herdr is the terminal multiplexer the Dori runs in. Every lane is a herdr tab, and herdr lets you read a pane, type into it and see which process runs there.
+The Dori runs in herdr-core (`hc`): every session, yours and each lane, is an `hc` terminal that stays alive, and hc reads, types into and reports the status of each one (omp reports idle, working, blocked and done to it on its own). Run `hc --skill` unless its manual is already in your context.
 
 ```sh
-curl -fsSL https://herdr.dev/install.sh | sh
-herdr integration install omp       # herdr reads each omp's state (idle, working, blocked) from this extension
-herdr --skill                       # load its skill unless it is already in your context
+hc server status                    # herdr-core is running (Herdr.app starts it)
+hc run --bg --name dori-lead --cwd ~/dev omp --model <model>   # how the lead itself runs
 ```
+
+The older herdr multiplexer still works: set `"terminal": "herdr"` in the config, install `herdr integration install omp` so herdr sees omp's state, and run inside herdr.
 
 ## 2. Messenger
 
@@ -55,13 +56,13 @@ cd skills/dori-mode/scripts && bun install && bun link    # puts `dori` on PATH
 mkdir -p ~/.dori && cp ../references/config.example.json ~/.dori/config.json
 ```
 
-Then edit `~/.dori/config.json`: at least `leadPane` (your own herdr pane, from `herdr pane current`), `laneWorkspace`, `defaultCwd`, and the two hooks if you want lane threads updated automatically. `references/scripts.md` explains every field.
+Then edit `~/.dori/config.json`: at least `leadPane` (your own terminal: its `hc` name such as `dori-lead`, or `$HC_TERMINAL_ID`), `laneWorkspace` (the `workspace=` label lane terminals get), `defaultCwd`, and the two hooks if you want lane threads updated automatically. `references/scripts.md` explains every field.
 
 ## 5. Relays
 
-omp has no line-filtered monitor: a background job reports only when it ends. Run each watcher under `dori relay` instead. It runs the command, prints all of its output, and types each line that matches `--filter` into `leadPane` (or `--to PANE`) as its own message, once, in order. A line it could not type (no live agent in the pane, a shell in front) is retried every 5 seconds; backticks and `$(` in a line are defused so the line still arrives.
+omp has no line-filtered monitor: a background job reports only when it ends. Run each watcher under `dori relay` instead. It runs the command, prints all of its output, and types each line that matches `--filter` into `leadPane` (or `--to PANE`) as its own message, once, in order, and only while that agent is idle or done: text typed into a turn can be lost, so lines wait while you work and arrive after your turn ends. A line it could not type (no live agent, a shell in front, a blocked dialog) is retried every 5 seconds; backticks and `$(` in a line are defused so the line still arrives.
 
-Start each as an omp named service from your own session (`bash` with a `name`, so it lives with the session and its log stays readable at `proc://<name>`), or in its own herdr pane:
+Start each in its own terminal that outlives your session (`hc run --bg --no-parent --name dori-<relay> -- <command>`), or as an omp named service (`bash` with a `name`):
 
 | Relay | Command | Filter (`--filter`) |
 |---|---|---|
