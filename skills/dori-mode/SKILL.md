@@ -110,3 +110,4 @@ Real work runs in its own terminal (an `hc` terminal labelled `workspace=<laneWo
 | `dori heavy <label> -- <cmd>` | run a heavy command only when a slot is free and load is low |
 | `dori can-launch` | is there room for a new lane? exit 4 with the reasons if not |
 | `dori send` / `dori presence` / `dori transcribe` | messenger utilities: post or edit on Slack, Telegram or Discord; stay shown online; voice note to text |
+| `dori kakaotalk rooms` / `read` / `dori send kakaotalk` / `dori inbound kakaotalk` | KakaoTalk through kakaotalk-bridge: open chats can be answered, every ordinary room is read-only (sending there is refused in code, nothing is marked read) |

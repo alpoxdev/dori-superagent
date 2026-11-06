@@ -73,11 +73,26 @@ Start each in its own terminal that outlives your session (`hc run --bg --no-par
 | freshness | `dori relay --filter '^(NUDGED\|POSTED\|NO-REPORT\|PENDING-REPORT\|STALE-REPORT\|STALLED\|JOURNAL-ERROR\|WORKING-WHILE-PAUSED)' -- dori freshness --loop 5` | `^(NUDGED\|POSTED\|…\|WORKING-WHILE-PAUSED)` |
 | Slack inbound (Slack only) | `dori relay --filter '^INBOUND' -- dori inbound slack --loop 1` | `^INBOUND` |
 | Telegram inbound (Telegram only) | `DORI_TELEGRAM_TOKEN=… DORI_TELEGRAM_OWNER_ID=… dori relay --filter '^INBOUND' -- dori inbound telegram --loop 1` | `^INBOUND` |
+| KakaoTalk inbound (KakaoTalk only) | `dori relay --filter '^INBOUND kakao-open' -- dori inbound kakaotalk --loop 1` | `^INBOUND kakao-open` |
 | presence (optional) | `dori relay --filter '^PRESENCE_READY' -- dori presence slack` (or `discord`) | `^PRESENCE_READY` |
 
 In a shell the `|` inside a filter is a plain `|`; the table escapes it only for Markdown. When the relayed command exits, `dori relay` exits with its code after one more minute of retries, and prints `RELAY_UNDELIVERED <n>` if lines were left.
 
 With Telegram, also run `DORI_TELEGRAM_TOKEN=… dori typing telegram` beside the relays (a named service or its own pane, not under `dori relay`: it prints nothing to relay). It shows you as typing in the owner's chat while you work on an unanswered message.
+
+### KakaoTalk
+
+KakaoTalk goes through [kakaotalk-bridge](https://github.com/alpoxdev/kakaotalk-bridge), which talks to KakaoTalk's servers itself; no KakaoTalk app is needed. Build it with `cargo install --path . --all-features --bin kakaotalk-bridge --bin kakaotalk-bridge-shim`, then:
+
+```sh
+kakaotalk-bridge --profile dori cli server-auth login --email <email> --wait-for-approval   # the owner types the password, then approves on the phone
+kakaotalk-bridge --profile dori cli manage --action sync                                    # first room list
+kakaotalk-bridge --profile dori --receive --socket ~/.local/share/kakaotalk-bridge/dori.sock # resident receiver, in its own terminal
+```
+
+Login takes a tablet slot and never evicts another device. The account is the owner's own: every answer goes out under the owner's name. A new device gets no history; only messages from the login on are stored. The receiver owns the account while it runs, so dori reads its archive directly and sends through its socket (`kakaotalk.dataDir`, `kakaotalk.profile`, `kakaotalk.socket` in the config).
+
+The rule is enforced in code: a room with a link id (an open chat) may be answered; an ordinary room is read-only. `dori send kakaotalk` refuses it with `KAKAO_READ_ONLY_ROOM` (exit 5) before the bridge is called, and nothing is ever marked read there. Only open-chat messages wake you (`INBOUND kakao-open`); read an ordinary room when the owner asks, with `dori kakaotalk read <chat-id>`.
 
 ## 6. First look around
 

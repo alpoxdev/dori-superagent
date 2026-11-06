@@ -50,6 +50,11 @@
     "diskFreeMinGb": 50,
     "panesMax": 20
   },
+  "kakaotalk": {
+    "dataDir": "~/.local/share/kakaotalk-bridge",
+    "profile": "dori",
+    "socket": ""
+  },
   "hooks": {
     "threadReply": [
       "my-messenger",
