@@ -28,6 +28,7 @@ import { Telegram } from "./messenger/telegram.ts";
 import { Discord, discordPresence } from "./messenger/discord.ts";
 import { realTimers } from "./messenger/typing.ts";
 import { TypingLedger, typingTick } from "./messenger/typing-ledger.ts";
+import { bridgeSocket, fileKakaoStore, findKakaoArchive, KakaoArchive, kakaoInboundLine, KakaoReadOnlyRoomError, pollKakaoInbound, sendKakao } from "./messenger/kakaotalk.ts";
 import { lines, Relay } from "./relay.ts";
 import { transcribe, TranscriptionError } from "./messenger/voice.ts";
 import { formatVerifyPr, verifyPr } from "./verify-pr.ts";
@@ -71,12 +72,17 @@ const USAGE = `dori <command> [options]
   can-launch                           exit 0 if the host has room for a new lane, else print why and exit 4
   send <slack|telegram|discord> --to TARGET --text TEXT [--thread ID] [--edit ID]
                                        post or edit a message (tokens from DORI_SLACK_TOKEN, DORI_TELEGRAM_TOKEN, DORI_DISCORD_TOKEN)
+  send kakaotalk --to CHAT_ID (--text TEXT | --image PATH)
+                                       send through kakaotalk-bridge; open chats only, an ordinary room is refused (exit 5)
+  kakaotalk rooms | read <chat-id> [--limit N]
+                                       list KakaoTalk rooms (open or read-only) / print a room's stored messages; never marks read
   presence <slack|discord>             keep the account shown as online until stopped
   typing telegram [--pane PANE]        long-running: show the Dori as typing in a chat whose owner message is still
                                        unanswered while PANE's agent (default leadPane) is working
   transcribe <audio-file>              run hooks.transcribe and print the text
   inbound slack|telegram [--loop MIN]  print INBOUND lines: Slack unread thread replies / Telegram owner DMs, edits and media + configured topic
-                                       the Dori posted in (any helper), DMs and channels with unread mentions`;
+                                       the Dori posted in (any helper), DMs and channels with unread mentions
+  inbound kakaotalk [--loop MIN]       print INBOUND kakao-open lines: messages others wrote in KakaoTalk open chats`;
 
 // An owner message older than this no longer shows the Dori typing, even if it was never answered.
 const TYPING_MAX_MS = 15 * 60_000;
@@ -103,7 +109,7 @@ const flags = parseArgs({
     "wall-minutes": { type: "string" }, "token-limit": { type: "string" }, "cost-limit": { type: "string" },
     "activity-path": { type: "string", multiple: true },
     rule: { type: "string" }, outcome: { type: "string" }, lesson: { type: "string" }, "dry-run": { type: "boolean" },
-    source: { type: "string" }, open: { type: "boolean" }, filter: { type: "string" },
+    source: { type: "string" }, open: { type: "boolean" }, filter: { type: "string" }, image: { type: "string" }, limit: { type: "string" },
   },
 });
 const opt = (name: string): string | undefined => {
@@ -380,8 +386,22 @@ try {
       process.exit(v.ok ? 0 : 4);
     }
     case "send": {
-      const platform = key ?? die("send needs slack, telegram or discord");
+      const platform = key ?? die("send needs slack, telegram, discord or kakaotalk");
       const to = need("to");
+      if (platform === "kakaotalk") {
+        const image = opt("image");
+        const content = image ? { image } : { text: need("text") };
+        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile));
+        try {
+          console.log(`SENT ${await sendKakao(archive, bridgeSocket(config.kakaotalk.socket), to, content, `dori-${to}-${Date.now()}-${process.pid}`)}`);
+        } catch (e) {
+          if (e instanceof KakaoReadOnlyRoomError) die(e.message, 5);
+          throw e;
+        } finally {
+          archive.close();
+        }
+        break;
+      }
       const text = need("text");
       const thread = opt("thread");
       const edit = opt("edit");
@@ -443,7 +463,41 @@ try {
         await Bun.sleep(4_000);
       }
     }
+    case "kakaotalk": {
+      const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile));
+      if (key === "rooms") {
+        for (const r of archive.rooms()) console.log(`${r.open ? "open     " : "read-only"} ${r.chatId} ${r.linkId} ${JSON.stringify(r.name)}`);
+      } else if (key === "read") {
+        const chat = flags.positionals[1] ?? die("usage: dori kakaotalk read <chat-id> [--limit N]");
+        const room = archive.room(chat) ?? die(`no KakaoTalk room ${chat} in the archive`);
+        console.log(`ROOM ${room.chatId} ${room.open ? "open" : "read-only"} ${JSON.stringify(room.name)}`);
+        for (const m of archive.recent(chat, Number(opt("limit") ?? 30))) {
+          console.log(`${new Date(m.sentAt).toISOString()} ${m.authorId === archive.selfId ? "me" : m.authorId} ${JSON.stringify(m.text)}${m.attachment ? " attachment" : ""}`);
+        }
+      } else die("usage: dori kakaotalk rooms | read <chat-id> [--limit N]");
+      archive.close();
+      break;
+    }
     case "inbound": {
+      if (key === "kakaotalk") {
+        const archive = new KakaoArchive(findKakaoArchive(config.kakaotalk.dataDir, config.kakaotalk.profile));
+        const call = bridgeSocket(config.kakaotalk.socket);
+        const store = fileKakaoStore(`${config.stateDir}/kakaotalk-seq`);
+        // A room the archive has not seen yet: refresh the room list through the resident receiver, then look again.
+        const sync = async () => {
+          await call("manage", { action: "sync" }).catch((e: unknown) => console.log(`WARN kakaotalk room sync failed: ${e instanceof Error ? e.message : String(e)}`.slice(0, 300)));
+        };
+        console.log(`INBOUND_READY kakaotalk account=${archive.selfId}`);
+        // The archive is local: poll it every few seconds rather than every --loop minutes.
+        const pause = loopMin > 0 ? Math.min(loopMin * 60_000, 3_000) : 0;
+        for (;;) {
+          await pollKakaoInbound(archive, store, sync, (i) => console.log(kakaoInboundLine(i))).catch((e: unknown) => console.log(`WARN ${e instanceof Error ? e.message : String(e)}`.slice(0, 300)));
+          if (!pause) break;
+          await Bun.sleep(pause);
+        }
+        archive.close();
+        break;
+      }
       if (key === "telegram") {
         const tg = new Telegram(fetchHttp, realClock, process.env.DORI_TELEGRAM_TOKEN ?? die("DORI_TELEGRAM_TOKEN is not set"));
         const store = fileTgInboundStore(`${config.stateDir}/telegram-offset`);

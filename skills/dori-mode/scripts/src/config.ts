@@ -46,6 +46,11 @@ export type DoriConfig = {
   /** Expected Git author and committer per lowercase `owner/repo`, for `verify-pr` and the lane footer. */
   readonly repoIdentities: Readonly<Record<string, CommitIdentity>>;
   readonly supervision: SupervisionOptions;
+  /**
+   * kakaotalk-bridge: its data folder (credentials and archives), the profile it was logged in with, and the Unix socket
+   * its resident receiver serves (empty: `<dataDir>/<profile>.sock`).
+   */
+  readonly kakaotalk: { readonly dataDir: string; readonly profile: string; readonly socket: string };
 };
 
 export const defaultConfig = (home = homedir()): DoriConfig => ({
@@ -73,6 +78,7 @@ export const defaultConfig = (home = homedir()): DoriConfig => ({
   hooks: {},
   repoIdentities: {},
   supervision: { hungAfterMinutes: 20, staleAfterMinutes: 20, defaults: { wallMinutes: null, tokens: null, costUsd: null } },
+  kakaotalk: { dataDir: join(home, ".local", "share", "kakaotalk-bridge"), profile: "dori", socket: "" },
 });
 
 export const configPath = (): string => process.env.DORI_CONFIG ?? join(homedir(), ".dori", "config.json");
@@ -136,6 +142,7 @@ export const loadConfig = async (path = configPath(), home = homedir()): Promise
     // Only a string is a marker: null or false would quietly turn the goal check off, and an object would never show.
     goalMarker: typeof raw.goalMarker === "string" ? raw.goalMarker : base.goalMarker,
     supervision: { ...base.supervision, ...raw.supervision, defaults: { ...base.supervision.defaults, ...raw.supervision?.defaults } },
+    kakaotalk: { ...base.kakaotalk, ...raw.kakaotalk },
   };
   for (const [name, value] of Object.entries({
     hungAfterMinutes: merged.supervision.hungAfterMinutes,
@@ -155,6 +162,11 @@ export const loadConfig = async (path = configPath(), home = homedir()): Promise
     defaultCwd: expandHome(merged.defaultCwd, home),
     sessionsDir: expandHome(merged.sessionsDir, home),
     leadPane: process.env.DORI_LEAD_PANE ?? merged.leadPane,
+    kakaotalk: {
+      dataDir: expandHome(merged.kakaotalk.dataDir, home),
+      profile: merged.kakaotalk.profile,
+      socket: expandHome(merged.kakaotalk.socket || join(merged.kakaotalk.dataDir, `${merged.kakaotalk.profile}.sock`), home),
+    },
     terminal: terminalKind(process.env.DORI_TERMINAL ?? merged.terminal),
   };
 };
