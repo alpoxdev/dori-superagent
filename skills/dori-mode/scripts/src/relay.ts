@@ -7,9 +7,11 @@ import type { Clock, Runner } from "./run.ts";
  * relay runs the command, echoes all of its output, and types the lines that match the filter into the pane, in order.
  *
  * `settleMs` holds a burst together: people send one thought as several short messages a few seconds apart, and an
- * agent woken by the first one answers it before the rest arrive. With a settle window, a sender's lines wait until that
- * sender has sent nothing new for that long (at most six windows from their first line, so someone who never pauses
- * still gets through), then go out together. 0 sends as soon as the agent can read.
+ * agent woken by the first one answers it before the rest arrive. A sender's lines wait until that sender has sent
+ * nothing new for a while, then go out together. How long follows their own pace: the relay learns the usual gap between
+ * one sender's consecutive lines and waits about twice that, between a third of `settleMs` and twice it; a sender it has
+ * not seen yet gets `settleMs`. A burst never waits more than six `settleMs` from its first line, so someone who never
+ * pauses still gets through. 0 sends as soon as the agent can read.
  *
  * `burstKey` says who a line is from: its capture groups, joined, name the sender. Each sender settles on their own,
  * so in a busy chat one person still typing does not hold back someone who has finished. With two or more groups the
@@ -35,6 +37,8 @@ type Burst = { readonly room: string | undefined; firstAt: number; lastAt: numbe
 export class Relay {
   private readonly pending: Queued[] = [];
   private readonly bursts = new Map<string, Burst>();
+  /** Each sender's usual gap between consecutive lines, in ms, as a moving average. */
+  private readonly pace = new Map<string, number>();
   private flushing: Promise<number> | null = null;
 
   constructor(readonly deps: RelayDeps) {}
@@ -46,6 +50,7 @@ export class Relay {
     const now = this.deps.clock.now();
     const burst = this.bursts.get(key);
     if (burst) {
+      this.learnPace(key, now - burst.lastAt);
       burst.lastAt = now;
       burst.ended = false;
     } else this.bursts.set(key, { room, firstAt: now, lastAt: now, ended: false });
@@ -66,13 +71,42 @@ export class Relay {
     return groups.length >= 2 ? { key: groups.join(" "), room: groups[0] } : { key: groups.join(" ") };
   }
 
-  /** True while this sender's burst is still arriving: their settle window has not passed since their last line. */
+  // A gap longer than the longest window is a new thought, not typing pace.
+  private learnPace(key: string, gap: number): void {
+    const settle = this.deps.settleMs ?? 0;
+    if (settle <= 0 || gap > settle * 2) return;
+    const before = this.pace.get(key);
+    this.pace.delete(key); // re-insert last, so the map's first entry is the sender seen longest ago
+    this.pace.set(key, before === undefined ? gap : before * 0.6 + gap * 0.4);
+    if (this.pace.size > 1_000) this.pace.delete(this.pace.keys().next().value!);
+  }
+
+  /** How long this sender's burst waits after their last line before it counts as finished. */
+  windowFor(key: string): number {
+    const settle = this.deps.settleMs ?? 0;
+    const pace = this.pace.get(key);
+    return pace === undefined ? settle : Math.min(settle * 2, Math.max(settle / 3, pace * 2));
+  }
+
+  /** Ms until the earliest burst still arriving would be finished, or undefined when none is. */
+  dueIn(): number | undefined {
+    const now = this.deps.clock.now();
+    let due: number | undefined;
+    for (const [key, b] of this.bursts) {
+      if (!this.settling(key)) continue;
+      const at = Math.min(b.lastAt + this.windowFor(key), b.firstAt + (this.deps.settleMs ?? 0) * 6);
+      due = Math.min(due ?? Infinity, at - now);
+    }
+    return due;
+  }
+
+  /** True while this sender's burst is still arriving: their window has not passed since their last line. */
   private settling(key: string): boolean {
     const settle = this.deps.settleMs ?? 0;
     const burst = this.bursts.get(key);
     if (settle <= 0 || !burst || burst.ended) return false;
     const now = this.deps.clock.now();
-    return now - burst.lastAt < settle && now - burst.firstAt < settle * 6;
+    return now - burst.lastAt < this.windowFor(key) && now - burst.firstAt < settle * 6;
   }
 
   /**

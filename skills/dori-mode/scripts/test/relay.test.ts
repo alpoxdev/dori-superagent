@@ -68,21 +68,46 @@ test("a flush on an empty queue does not stall the relay: a line offered afterwa
   expect(sent(world)).toEqual(['LANE_DONE_CLAIMED second-lane']);
 });
 
-test("with a settle window, a burst of short lines waits for the sender to pause and reaches an idle lead as one message", async () => {
+test("a sender seen for the first time waits the settle window: one line goes out once they have been quiet that long", async () => {
   const { world, relay, clock } = setup("idle", 6_000);
   relay.offer("LANE_A 회의");
-  expect(await relay.flush()).toBe(1);
-  clock.at += 4_000;
-  relay.offer("LANE_A 금요일에");
-  expect(await relay.flush()).toBe(2);
-  clock.at += 5_000;
-  relay.offer("LANE_A 가능하세요?");
   clock.at += 5_999;
+  expect(await relay.flush()).toBe(1);
+  clock.at += 1;
+  expect(await relay.flush()).toBe(0);
+  expect(sent(world)).toEqual(["LANE_A 회의"]);
+});
+
+test("someone who sends short lines quickly is answered quickly: the wait follows their own pace, as one message", async () => {
+  const { world, relay, clock } = setup("idle", 6_000);
+  relay.offer("LANE_A 회의");
+  clock.at += 1_000;
+  relay.offer("LANE_A 금요일에");
+  clock.at += 1_000;
+  relay.offer("LANE_A 가능하세요?");
+  // Their gap is 1 s, so 2 s of quiet is enough (never less than a third of the 6 s window).
+  clock.at += 1_999;
+  expect(await relay.flush()).toBe(3);
+  expect(relay.dueIn()).toBe(1);
+  clock.at += 1;
+  expect(await relay.flush()).toBe(0);
+  expect(sent(world)).toEqual(["LANE_A 회의\nLANE_A 금요일에\nLANE_A 가능하세요?"]);
+});
+
+test("someone who types slowly gets a longer wait, up to twice the settle window", async () => {
+  const { world, relay, clock } = setup("idle", 6_000);
+  relay.offer("LANE_A 그게");
+  clock.at += 5_000;
+  relay.offer("LANE_A 제 생각에는");
+  clock.at += 5_000;
+  relay.offer("LANE_A 좀 어려울 것 같아요");
+  // Their gap is 5 s: 6 s of quiet is not enough, 10 s is.
+  clock.at += 9_999;
   expect(await relay.flush()).toBe(3);
   expect(sent(world)).toEqual([]);
   clock.at += 1;
   expect(await relay.flush()).toBe(0);
-  expect(sent(world)).toEqual(["LANE_A 회의\nLANE_A 금요일에\nLANE_A 가능하세요?"]);
+  expect(sent(world)).toHaveLength(1);
 });
 
 test("a burst that never pauses still goes out once six settle windows have passed since its first line", async () => {
@@ -104,17 +129,17 @@ test("in a busy chat each sender settles on their own: one who has finished is n
   relay.offer("LANE_room A 점심"); // 0 s
   clock.at += 2_000;
   relay.offer("LANE_room B 저는"); // 2 s
+  clock.at += 1_000;
+  relay.offer("LANE_room A 뭐 먹어요?"); // 3 s: A's pace is 3 s, so A is done after 6 s of quiet
   clock.at += 2_000;
-  relay.offer("LANE_room A 뭐 먹어요?"); // 4 s
+  relay.offer("LANE_room B 아무거나"); // 5 s
   clock.at += 3_000;
-  relay.offer("LANE_room B 아무거나"); // 7 s
-  expect(await relay.flush()).toBe(4);
-  expect(sent(world)).toEqual([]);
-  clock.at += 3_000;
-  relay.offer("LANE_room B 좋아요"); // 10 s: A has been quiet for 6 s, B is still typing
+  relay.offer("LANE_room B 좋아요"); // 8 s: B is still typing
+  expect(await relay.flush()).toBe(5);
+  clock.at += 1_000; // 9 s
   expect(await relay.flush()).toBe(3);
   expect(sent(world)).toEqual(["LANE_room A 점심\nLANE_room A 뭐 먹어요?"]);
-  clock.at += 6_000;
+  clock.at += 12_000;
   expect(await relay.flush()).toBe(0);
   expect(sent(world)).toEqual(["LANE_room A 점심\nLANE_room A 뭐 먹어요?", "LANE_room B 저는\nLANE_room B 아무거나\nLANE_room B 좋아요"]);
 });

@@ -65,8 +65,8 @@ const USAGE = `dori <command> [options]
   watch                                long-running: emits LANE_* lines every 30 s
   relay --filter REGEX [--to PANE] [--settle SEC [--burst-key REGEX]] -- <command ...>
                                        run a long-running command and type matching lines into PANE (default leadPane);
-                                       --settle holds each sender's burst until they send nothing for SEC, then sends it
-                                       as one message; --burst-key's capture groups name the sender (default: one sender)
+                                       --settle holds each sender's burst until they pause (SEC at first, then about twice
+                                       their own usual gap), then sends it as one message; --burst-key's capture groups name the sender (default: one sender)
   freshness [--loop MIN]               nudge silent lanes, post their last report via hooks.threadReply
   dead-panes [--loop MIN]              print DEAD_PANE <id> for stopped agent panes
   guard [--loop MIN]                   host load, memory, disk and pane-count alerts
@@ -385,7 +385,8 @@ try {
         if (relay.offer(line)) {
           void relay.flush();
           // A settling burst is sent once the window after its last line has passed, not at the next 5 s retry.
-          if (settleSec > 0) setTimeout(() => void relay.flush(), settleSec * 1000 + 50);
+          const due = relay.dueIn();
+          if (due !== undefined) setTimeout(() => void relay.flush(), due + 50);
         }
       }
       const code = await child.exited;
