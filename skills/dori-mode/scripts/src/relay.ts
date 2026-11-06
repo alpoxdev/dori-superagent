@@ -1,4 +1,4 @@
-import { sendVerified } from "./panes.ts";
+import { sendVerified, statusLookup } from "./panes.ts";
 import type { Clock, Runner } from "./run.ts";
 
 /**
@@ -31,15 +31,19 @@ export class Relay {
   }
 
   /**
-   * Sends queued lines in order until one fails; returns how many are left. A line is typed once: "unconfirmed" (the
-   * agent was busy, or did not visibly pick it up) counts as sent, because typing it again could deliver it twice. Only
-   * "failed" (no live agent, a shell in front, herdr refused the text) keeps it for the next flush. Concurrent calls
-   * share one pass.
+   * Sends queued lines in order while the pane's agent is ready to read; returns how many are left. Text typed into an
+   * omp that is mid-turn can be lost (it lands in whatever the turn has in front), so a line goes out only when the agent
+   * reports idle or done; while it works, the lines wait and the next flush tries again. Each line is typed once:
+   * "unconfirmed" (the agent did not visibly pick it up) counts as sent, because typing it again could deliver it twice.
+   * Only "failed" (no live agent, a shell in front, the terminal refused the text) keeps it. Concurrent calls share one
+   * pass.
    */
   flush(): Promise<number> {
     this.flushing ??= (async () => {
       try {
         while (this.pending.length > 0) {
+          const { status } = await statusLookup(this.deps.run, this.deps.pane);
+          if (status !== "idle" && status !== "done") break;
           if ((await sendVerified(this.deps.run, this.deps.clock, this.deps.pane, this.pending[0]!)) === "failed") break;
           this.pending.shift();
         }

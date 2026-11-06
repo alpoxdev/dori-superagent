@@ -194,7 +194,7 @@ test("launch registers the lane before it starts the agent, so the lane's first 
     return base.run(argv);
   } };
   await launchLane(deps, { key: "fast-lane", title: "t", brief, done: "closed acme/app#3" });
-  expect(atStart?.pane).toBe("w:p9");
+  expect(atStart?.key).toBe("fast-lane");
 });
 
 test("the harness launch record is not the lane's report: a silent launched lane is NO-REPORT, never posted", async () => {

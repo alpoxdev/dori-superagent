@@ -1,6 +1,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { hcGet, terminal } from "./panes.ts";
 import type { Runner } from "./run.ts";
 
 export type Proc = { readonly pid: number; readonly ppid: number; readonly cmd: string };
@@ -36,9 +37,16 @@ export const sessionDirFor = (sessionsDir: string, cwd: string): string => join(
 export type SessionDeps = { readonly run: Runner; readonly sessionsDir: string; readonly listDir?: (dir: string) => readonly string[] };
 
 export const resolveSession = async (pane: string, cwd: string, table: readonly Proc[], deps: SessionDeps): Promise<SessionHit> => {
-  const info = await deps.run(["herdr", "pane", "process-info", "--pane", pane]);
-  const shellPid = info.code === 0 ? Number((JSON.parse(info.out) as { result?: { process_info?: { shell_pid?: number } } }).result?.process_info?.shell_pid ?? 0) : 0;
-  const agent = shellPid ? descendants(table, shellPid).find((p) => AGENT.test(p.cmd) && !/\bmcp\b/.test(p.cmd)) : undefined;
+  let agent: Proc | undefined;
+  if (terminal() === "hc") {
+    // An hc terminal runs the agent itself, with no shell around it: its pid is the agent's.
+    const pid = (await hcGet(deps.run, pane).catch(() => undefined))?.pid;
+    agent = pid ? table.find((p) => p.pid === pid) : undefined;
+  } else {
+    const info = await deps.run(["herdr", "pane", "process-info", "--pane", pane]);
+    const shellPid = info.code === 0 ? Number((JSON.parse(info.out) as { result?: { process_info?: { shell_pid?: number } } }).result?.process_info?.shell_pid ?? 0) : 0;
+    agent = shellPid ? descendants(table, shellPid).find((p) => AGENT.test(p.cmd) && !/\bmcp\b/.test(p.cmd)) : undefined;
+  }
   if (!agent) return { id: "", via: "none" };
   const argv = agent.cmd.split(/\s+/);
   const flagAt = argv.indexOf("--session");

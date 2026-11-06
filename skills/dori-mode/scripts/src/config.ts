@@ -1,6 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import type { TerminalKind } from "./panes.ts";
 import type { SupervisionOptions } from "./supervision.ts";
 import type { CommitIdentity } from "./verify-pr.ts";
 
@@ -22,6 +23,8 @@ export type GuardThresholds = {
 
 export type DoriConfig = {
   readonly stateDir: string;
+  /** Where panes live: the herdr multiplexer, or herdr-core's `hc` terminals. */
+  readonly terminal: TerminalKind;
   readonly laneWorkspace: string;
   readonly workspaces: readonly string[];
   readonly ignorePanes: readonly string[];
@@ -47,6 +50,7 @@ export type DoriConfig = {
 
 export const defaultConfig = (home = homedir()): DoriConfig => ({
   stateDir: join(home, ".dori", "state"),
+  terminal: "hc",
   laneWorkspace: "",
   workspaces: [],
   ignorePanes: [],
@@ -151,7 +155,13 @@ export const loadConfig = async (path = configPath(), home = homedir()): Promise
     defaultCwd: expandHome(merged.defaultCwd, home),
     sessionsDir: expandHome(merged.sessionsDir, home),
     leadPane: process.env.DORI_LEAD_PANE ?? merged.leadPane,
+    terminal: terminalKind(process.env.DORI_TERMINAL ?? merged.terminal),
   };
+};
+
+const terminalKind = (value: unknown): TerminalKind => {
+  if (value === "herdr" || value === "hc") return value;
+  throw new ConfigError(`invalid terminal: expected "herdr" or "hc", got ${JSON.stringify(value)}`);
 };
 
 export const fill = (template: ArgvTemplate, values: Readonly<Record<string, string>>): string[] =>

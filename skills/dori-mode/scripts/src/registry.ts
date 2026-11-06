@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, renameSync } from "node:fs";
+import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { BudgetLimits } from "./supervision.ts";
 
@@ -85,6 +85,11 @@ export class Registry {
     const tmp = `${this.path(lane.key)}.${process.pid}.tmp`;
     await Bun.write(tmp, JSON.stringify(lane, null, 1));
     renameSync(tmp, this.path(lane.key));
+  }
+
+  /** Drops a lane that never opened (its pane could not be created), so the same key can be launched again. */
+  remove(key: string): void {
+    rmSync(this.path(key), { force: true });
   }
 
   // Reading never creates the lanes directory (dori boot is read-only); write() creates it.

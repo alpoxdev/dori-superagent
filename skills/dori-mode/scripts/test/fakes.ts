@@ -4,8 +4,12 @@ import { join } from "node:path";
 
 import { type DoriConfig, defaultConfig } from "../src/config.ts";
 import type { FlowDeps } from "../src/done-flow.ts";
+import { setTerminal } from "../src/panes.ts";
 import { Registry } from "../src/registry.ts";
 import type { Clock, Ran, Runner } from "../src/run.ts";
+
+// The fake below answers `herdr` argv; hc has its own fake in hc-terminal.test.ts.
+setTerminal("herdr");
 
 export type World = {
   prState: string;

@@ -12,12 +12,15 @@ const setup = (status: string | undefined) => {
   return { world, relay };
 };
 
-test("only matching lines are typed, each once and in order, even into a busy lead", async () => {
+test("a working lead is never typed into: matching lines wait, then go out once each, in order, when it is idle", async () => {
   const { world, relay } = setup("working");
   for (const line of ["LANE_WATCH_READY", "checking 3 lanes", "LANE_DONE_CLAIMED fix-login"]) relay.offer(line);
+  expect(await relay.flush()).toBe(2);
+  expect(sent(world)).toEqual([]);
+  world.panes[0]!.agent_status = "done";
   expect(await relay.flush()).toBe(0);
   expect(sent(world)).toEqual(["LANE_WATCH_READY", "LANE_DONE_CLAIMED fix-login"]);
-  // Unconfirmed (busy) sends are never typed again.
+  // A line that went out is never typed again.
   expect(await relay.flush()).toBe(0);
   expect(sent(world)).toHaveLength(2);
 });
@@ -34,7 +37,7 @@ test("a lead pane with no live agent keeps the lines, and they go out in order o
 });
 
 test("backticks and $( in a relayed line are defused, so the line still arrives", async () => {
-  const { world, relay } = setup("working");
+  const { world, relay } = setup("idle");
   relay.offer("LANE_NOT_DONE a: run `make` then $(cat x)");
   expect(await relay.flush()).toBe(0);
   expect(sent(world)).toEqual(["LANE_NOT_DONE a: run 'make' then $ (cat x)"]);

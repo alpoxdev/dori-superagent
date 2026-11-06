@@ -1,4 +1,5 @@
 import type { GuardThresholds } from "./config.ts";
+import { listPanes } from "./panes.ts";
 import type { Runner } from "./run.ts";
 
 export type HostSample = {
@@ -32,8 +33,7 @@ export const sampleHost = async (run: Runner, dataPath = "/"): Promise<HostSampl
   const diskFreeGb = num(df.out.split("\n").at(-1)?.trim().split(/\s+/)[3], 0) / 1_048_576;
   const swap = await run(["sysctl", "-n", "vm.swapusage"]);
   const swapFreeGb = num(/free = ([\d.]+)M/.exec(swap.out)?.[1], 0) / 1024;
-  const pl = await run(["herdr", "pane", "list"]);
-  const panes = pl.code === 0 ? (JSON.parse(pl.out) as { result: { panes: unknown[] } }).result.panes.length : -1;
+  const panes = await listPanes(run).then((list) => list.length, () => -1);
   return { load1, memFreePct, diskFreeGb, swapFreeGb, panes };
 };
 

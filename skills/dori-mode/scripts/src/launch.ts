@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { type DoriConfig, fill } from "./config.ts";
 import type { FlowDeps } from "./done-flow.ts";
-import { readScreen, statusLookup } from "./panes.ts";
+import { openLane, readScreen, statusLookup } from "./panes.ts";
 import { LANE_KEY, type Lane, RESERVED_LANE_KEY } from "./registry.ts";
 import { iso } from "./run.ts";
 import { Reports } from "./reports.ts";
@@ -123,20 +123,22 @@ const startLane = async (deps: FlowDeps, input: LaunchInput, draft: Lane, preamb
   const model = input.model ?? deps.config.defaultModel;
   const cwd = input.cwd ?? deps.config.defaultCwd;
   await Bun.write(input.brief, preamble);
-  const created = await deps.run(["herdr", "tab", "create", ...(deps.config.laneWorkspace ? ["--workspace", deps.config.laneWorkspace] : []), "--cwd", cwd, "--label", input.key, "--no-focus"]);
-  if (created.code !== 0) throw new LaunchError(`herdr tab create failed: ${created.err || created.out}`);
-  const made = (JSON.parse(created.out) as { result: { root_pane: { pane_id: string; tab_id?: string }; tab_id?: string } }).result;
-  const pane = made.root_pane.pane_id;
-  const tab = made.tab_id ?? made.root_pane.tab_id;
+  const keywords = deps.config.launchKeywords.trim();
+  const prompt = `${keywords ? `${keywords}. ` : ""}Read and execute the lane brief at ${input.brief} in full. You are the ${input.key} lane; report as the brief's footer says.`;
+  const argv = fill(deps.config.agentCommand, { model, prompt });
   // Registered before the agent starts: dori report refuses an unknown key, so a fast lane's first report would be lost.
-  const lane: Lane = { ...draft, pane, ...(tab ? { tab } : {}) };
+  // Under hc the terminal starts the agent the moment it exists, so the pane is filled in only after it opens.
+  await deps.registry.write(draft);
+  const opened = await openLane(deps.run, input.key, cwd, deps.config.laneWorkspace, argv, argv.map(quoteForPane).join(" ")).catch((e: unknown) => {
+    deps.registry.remove(input.key);
+    throw new LaunchError(e instanceof Error ? e.message : String(e));
+  });
+  const pane = opened.pane;
+  const lane: Lane = { ...draft, pane, ...(opened.tab ? { tab: opened.tab } : {}) };
   await deps.registry.write(lane);
   // The launch is an activity record, not a report: it starts the journal (so the screen is watched for a stall) but is
   // never posted to the thread as if the agent had reported.
   new Reports(deps.config.stateDir).append({ type: "activity", key: lane.key, at: iso(deps.clock), state: "running", text: `lane launched in ${pane}` });
-  const keywords = deps.config.launchKeywords.trim();
-  const prompt = `${keywords ? `${keywords}. ` : ""}Read and execute the lane brief at ${input.brief} in full. You are the ${input.key} lane; report as the brief's footer says.`;
-  await deps.run(["herdr", "pane", "run", pane, fill(deps.config.agentCommand, { model, prompt }).map(quoteForPane).join(" ")]);
   const started = deps.clock.now();
   await deps.clock.sleep(20_000);
   const screen = await readScreen(deps.run, pane, 40);

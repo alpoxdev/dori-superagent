@@ -2,6 +2,7 @@
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 
+import { setTerminal } from "./panes.ts";
 import { bootCheck, slackAuthCheck } from "./boot.ts";
 import { ConfigError, loadConfig } from "./config.ts";
 import { deadPaneTick, newDeadPaneState } from "./dead-panes.ts";
@@ -85,6 +86,7 @@ const die = (message: string, code = 1): never => {
 };
 
 const config = await loadConfig().catch((e: unknown) => (e instanceof ConfigError ? die(e.message) : Promise.reject(e)));
+setTerminal(config.terminal);
 const deps: FlowDeps = { run, clock: realClock, registry: new Registry(config.stateDir), config };
 const [command = "", ...rest] = process.argv.slice(2);
 

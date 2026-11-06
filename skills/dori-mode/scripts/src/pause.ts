@@ -1,5 +1,5 @@
 import type { FlowDeps } from "./done-flow.ts";
-import { readScreen, sendVerified, statusLookup } from "./panes.ts";
+import { pressKey, readScreen, sendVerified, statusLookup } from "./panes.ts";
 import { type Lane, type LaneStatus, statusOf, withStatus } from "./registry.ts";
 
 /**
@@ -45,7 +45,7 @@ export const pauseLane = async (deps: FlowDeps, lane: Lane, note: string): Promi
   const paused = withStatus(lane, "paused", note, at, { pausedFrom: status, pausedSeenWorking: undefined, lastFreshnessNote: undefined });
   await deps.registry.write(paused);
   const running = (await statusLookup(deps.run, lane.pane)).status === "working";
-  if (running) await deps.run(["herdr", "pane", "send-keys", lane.pane, "escape"]);
+  if (running) await pressKey(deps.run, lane.pane, "escape");
   return { lane: paused, lines: [`PAUSED ${lane.key} goal paused${running ? ", running turn interrupted" : ""}`], code: 0 };
 };
 
