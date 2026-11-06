@@ -56,3 +56,13 @@ test("lines() splits chunks on newlines, across chunk edges and multi-byte chara
   for await (const line of lines(stream)) got.push(line);
   expect(got).toEqual(["LANE_A 한글", "LANE_B", "last"]);
 });
+
+test("a flush on an empty queue does not stall the relay: a line offered afterwards still goes out", async () => {
+  // The relay retries every 5 s, so in practice the queue is almost always empty when a flush runs.
+  const { world, relay } = setup("idle");
+  expect(await relay.flush()).toBe(0);
+  expect(await relay.flush()).toBe(0);
+  relay.offer('LANE_DONE_CLAIMED second-lane');
+  expect(await relay.flush()).toBe(0);
+  expect(sent(world)).toEqual(['LANE_DONE_CLAIMED second-lane']);
+});

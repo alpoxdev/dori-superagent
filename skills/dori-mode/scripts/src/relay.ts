@@ -39,20 +39,23 @@ export class Relay {
    * pass.
    */
   flush(): Promise<number> {
-    this.flushing ??= (async () => {
-      try {
-        while (this.pending.length > 0) {
-          const { status } = await statusLookup(this.deps.run, this.deps.pane);
-          if (status !== "idle" && status !== "done") break;
-          if ((await sendVerified(this.deps.run, this.deps.clock, this.deps.pane, this.pending[0]!)) === "failed") break;
-          this.pending.shift();
-        }
-        return this.pending.length;
-      } finally {
-        this.flushing = null;
-      }
-    })();
+    // The reset is chained with .finally, which runs only after the assignment. Clearing it inside the pass itself would
+    // run synchronously when the queue is empty, before the assignment, and leave a settled pass here forever: every
+    // later flush would then report 0 left without sending anything.
+    this.flushing ??= this.pass().finally(() => {
+      this.flushing = null;
+    });
     return this.flushing;
+  }
+
+  private async pass(): Promise<number> {
+    while (this.pending.length > 0) {
+      const { status } = await statusLookup(this.deps.run, this.deps.pane);
+      if (status !== "idle" && status !== "done") break;
+      if ((await sendVerified(this.deps.run, this.deps.clock, this.deps.pane, this.pending[0]!)) === "failed") break;
+      this.pending.shift();
+    }
+    return this.pending.length;
   }
 }
 

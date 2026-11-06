@@ -201,7 +201,7 @@ Nineteen more unit tests (`test/loop.test.ts`) run the hourly loop on the same f
 
 Two end-to-end tests (`test/e2e.test.ts`). The first starts a real herdr server in an isolated named session, creates a workspace, registers a lead pane, and starts a lane whose agent is `test/fixtures/fake-agent.sh` in place of omp. The script reads its brief, calls `dori report` and `dori ready`, and the test checks that `[START]`, `[REPORT]` and `[READY]` arrive in the lead pane and that `dori done` closes the lane. The second adds a backlog item, runs `dori loop --once`, and checks that the lane it starts reaches READY, that `[LOOP ...]` reaches the lead pane, and that `dori loop stop` makes the next run do nothing. Both are skipped when `herdr` is not on PATH. `bun run typecheck` runs `tsc --noEmit`.
 
-Dori mode has its own 311 tests, against fake herdr, hc, git and gh. Dori mode runs in herdr-core (`hc`) by default; set `"terminal": "herdr"` in its config for the herdr multiplexer:
+Dori mode has its own 312 tests, against fake herdr, hc, git and gh. Dori mode runs in herdr-core (`hc`) by default; set `"terminal": "herdr"` in its config for the herdr multiplexer:
 
 ```sh
 cd skills/dori-mode/scripts && bun install && bun test
